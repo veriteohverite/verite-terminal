@@ -411,7 +411,7 @@ function samplePixels(){
 function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
-  disProgress=Math.min(disProgress+0.013,1); // faster -- ~2.2s total
+  disProgress=Math.min(disProgress+0.013,1);
   var p=disProgress,W=dCv.width,H=dCv.height;
   var cx=disOx*W,cy=disOy*H;
 
@@ -431,11 +431,10 @@ function drawDis(){
   var t=p*180;
   var t2=p*60;
   var corrupt=p<0.06?0:Math.min((p-0.06)/0.45,1);
-  var disp=p<0.06?0:Math.pow((p-0.06)/0.94,2.0)*W*0.45;
+  var disp=p<0.06?0:Math.pow((p-0.06)/0.94,2.0)*W*0.5;
 
   var maxDist=Math.sqrt(Math.max(cx,W-cx)*Math.max(cx,W-cx)+Math.max(cy,H-cy)*Math.max(cy,H-cy));
 
-  // Dissolve starts early, edges first
   var dStart=0.38;
   var dP=p>dStart?Math.pow((p-dStart)/(1-dStart),1.3):0;
 
@@ -446,46 +445,44 @@ function drawDis(){
     while(col<W){
       var pw=2+Math.floor((Math.sin(col*23.1+row*11.3+t*0.27)*0.5+0.5)*4.99);
 
+      // Multiple noise layers -- breaks up the perfect circle
       var ns1=Math.sin(col*7.1+row*13.3+t*1.7)*0.5+0.5;
       var ns2=Math.sin(col*3.7+row*5.9+t*2.3)*0.5+0.5;
       var ns3=Math.sin(col*11.3+row*2.7+t2*3.1)*0.5+0.5;
+      var ns4=Math.sin(col*17.9+row*23.1+t*0.9)*0.5+0.5; // extra chaos
+      var ns5=Math.sin(col*5.3+row*31.7+t2*1.7)*0.5+0.5;
 
-      // Distance from center, normalized 0=center 1=far edge
       var dx=col-cx,dy=row-cy;
       var dist=Math.sqrt(dx*dx+dy*dy);
       var normDist=dist/maxDist;
 
-      // Spiral: offset death threshold by angle so it sweeps around
-      var angle=Math.atan2(dy,dx); // -PI to PI
-      var spiralOffset=(angle/(Math.PI*2)+0.5)*0.18; // small angular nudge
+      // Death threshold: edge-first but heavily noised -- no clean circle
+      // Mix of distance, two independent noise fields, and a turbulence layer
+      var turbulence=(ns4*ns5)*0.35; // breaks up any regular pattern
+      var noiseField=ns1*0.22+ns2*0.18; // large-scale noise variation
+      var deathThresh=(1-normDist)*0.72 + noiseField + turbulence;
+      // clamp so some edge pixels still survive a bit, center survives longest
+      deathThresh=Math.max(0.05,Math.min(0.99,deathThresh));
 
-      // Edge pixels die first: high normDist = low death threshold
-      // Center pixels die last
-      var deathThresh=(1-normDist)*0.75+spiralOffset+ns1*0.12;
-      // dP needs to exceed deathThresh for pixel to die
       var dead=dP>deathThresh;
 
       if(dead){
-        var deathEdge=Math.max(0,1-(dP-deathThresh)*6);
-        if(deathEdge>0.15){
-          var fl=Math.round(deathEdge*140);
-          dCtx.fillStyle='rgb('+fl+','+fl+','+fl+')';
-        } else {
-          dCtx.fillStyle='rgb(0,0,0)';
-        }
+        // No white flash -- just go straight to black
+        dCtx.fillStyle='rgb(0,0,0)';
         dCtx.fillRect(col,row,pw,ph);
         col+=pw;continue;
       }
 
-      // Living pixels -- random displacement, no directional bias
+      // Living pixels -- image displacement (datamosh)
       var sx=col,sy=row;
       if(corrupt>0&&ns3<corrupt){
         var ang2=ns1*Math.PI*2;
         var mag=(ns2*0.7+0.3)*disp*corrupt;
-        if(ns1>0.88) mag*=2.5;
-        if(ns2>0.92) mag*=3.5;
+        // big random jumps for codec-error feel
+        if(ns1>0.88) mag*=2.8;
+        if(ns2>0.92) mag*=3.8;
         sx=Math.round(col+Math.cos(ang2)*mag);
-        sy=Math.round(row+Math.sin(ang2)*mag*0.6);
+        sy=Math.round(row+Math.sin(ang2)*mag*0.55);
       }
 
       sx=Math.max(0,Math.min(W-1,sx));
@@ -495,12 +492,13 @@ function drawDis(){
       var pg=imgData.data[pi+1];
       var pb=imgData.data[pi+2];
 
-      // Fade living pixels toward black near their death
+      // Pixels near death smoothly darken -- no flash, just fade to black
       if(dP>0){
-        var proximity=Math.max(0,1-(deathThresh-dP)*4);
-        pr=Math.round(pr*(1-proximity*0.7));
-        pg=Math.round(pg*(1-proximity*0.7));
-        pb=Math.round(pb*(1-proximity*0.7));
+        var proximity=Math.max(0,1-(deathThresh-dP)*5);
+        var darkAmt=proximity*proximity*0.92;
+        pr=Math.round(pr*(1-darkAmt));
+        pg=Math.round(pg*(1-darkAmt));
+        pb=Math.round(pb*(1-darkAmt));
       }
 
       dCtx.fillStyle='rgb('+pr+','+pg+','+pb+')';
@@ -510,9 +508,9 @@ function drawDis(){
     row+=ph;
   }
 
-  // Random jump blocks -- flicker in/out, change every frame
-  if(p>0.15&&p<0.72){
-    var numJumps=Math.round(corrupt*corrupt*10);
+  // Random jump blocks -- image displacement chunks, flicker every frame
+  if(p>0.12&&p<0.78){
+    var numJumps=Math.round(corrupt*corrupt*12);
     for(var j=0;j<numJumps;j++){
       var jx=Math.floor(Math.sin(j*17.3+t*1.1)*0.5*W+W/2);
       var jy=Math.floor(Math.sin(j*11.7+t*0.9)*0.5*H+H/2);
@@ -528,7 +526,7 @@ function drawDis(){
     }
   }
 
-  // Collapse to black at end
+  // Collapse to black
   if(p>0.82){
     var ep=Math.pow((p-0.82)/0.18,1.5);
     dCtx.fillStyle='rgba(0,0,0,'+ep.toFixed(3)+')';
