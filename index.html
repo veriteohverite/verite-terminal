@@ -359,73 +359,44 @@ function drawDis(){
   requestAnimationFrame(drawDis);
   disProgress=Math.min(disProgress+0.0048,1);
   var W=dCv.width,H=dCv.height,p=disProgress;
-  var cx=disOx*W,cy=disOy*H;
-  var e=p<0.5?2*p*p:-1+(4-2*p)*p;
   dCtx.clearRect(0,0,W,H);
 
-  // expanding dark fill
-  var maxR=Math.sqrt(W*W+H*H);
-  var g=dCtx.createRadialGradient(cx,cy,0,cx,cy,maxR);
-  g.addColorStop(0,"rgba(0,0,0,"+Math.min(e*2.2,1)+")");
-  g.addColorStop(Math.min(0.98,e*0.7),"rgba(0,0,0,"+Math.min(e*1.6,0.94)+")");
-  g.addColorStop(Math.min(0.99,e*0.9),"rgba(0,0,0,"+Math.min(e*0.9,0.7)+")");
-  g.addColorStop(1,"rgba(0,0,0,0)");
-  dCtx.fillStyle=g;dCtx.fillRect(0,0,W,H);
+  // phase 1 (0-0.3): glitch the hero image in place
+  if(p<0.3&&heroLoaded){drawHeroImage(Math.min(p*3.5,1));}
 
-  for(var i=0;i<PIXELS.length;i++){
-    var pt=PIXELS[i];
-    var lp=Math.max(0,(p-pt.delay)/(1-pt.delay));
-    if(lp<=0)continue;
-    var le=lp<0.5?2*lp*lp:-1+(4-2*lp)*lp;
+  // phase 2 (0.15-1): pixel blocks flicker and die in place -- no movement, no pull
+  if(p>0.15){
+    var dp=Math.min((p-0.15)/0.7,1);
+    for(var i=0;i<PIXELS.length;i++){
+      var pt=PIXELS[i];
+      // each block starts dying at its own random delay
+      var lp=Math.max(0,Math.min((dp-pt.delay*0.8)/0.5,1));
 
-    // pulse: fast flicker early, slows as it collapses
-    pt.pulse+=pt.pulseRate*(1+le*2);
-    var pulseRaw=Math.sin(pt.pulse);
-    // two-layer pulse: slow swell + fast shimmer
-    pt.pulse2+=pt.pulseRate*0.3;
-    var pulseMult=(0.7+Math.sin(pt.pulse2)*0.3)*(0.88+pulseRaw*0.12*(1-le*0.8));
+      // fast strobe flicker as it dies -- like a pixel losing signal
+      pt.pulse+=pt.pulseRate*(2+lp*4);
+      pt.pulse2+=pt.pulseRate*0.7;
+      var strobe=Math.max(0,Math.sin(pt.pulse));
+      var swell=0.6+Math.sin(pt.pulse2)*0.4;
 
-    // no pull -- just drift slightly with pulse
-    pt.x += (Math.random()-0.5)*0.5;
-    pt.y += (Math.random()-0.5)*0.5;
+      // alive: full color, just flickering with the glitch energy
+      // dying: desaturate, darken, strobe faster until gone
+      var lum=(pt.r*0.299+pt.g*0.587+pt.b*0.114);
+      var desat=lp*0.8;
+      var brightness=(1-lp*0.95)*swell;
+      var dr=Math.min(255,Math.floor((pt.r*(1-desat)+lum*desat)*brightness));
+      var dg=Math.min(255,Math.floor((pt.g*(1-desat)+lum*desat)*brightness));
+      var db=Math.min(255,Math.floor((pt.b*(1-desat)+lum*desat)*brightness));
 
-    // color: hold image color, desaturate mid, fade to black at end
-    var desat=le*0.5;
-    var lum=(pt.r*0.299+pt.g*0.587+pt.b*0.114);
-    var cr2=Math.floor((pt.r*(1-desat)+lum*desat)*(1-le*0.9)*pulseMult);
-    var cg2=Math.floor((pt.g*(1-desat)+lum*desat)*(1-le*0.9)*pulseMult);
-    var cb2=Math.floor((pt.b*(1-desat)+lum*desat)*(1-le*0.9)*pulseMult);
+      // alpha: strobes to zero as lp approaches 1
+      var alpha=(lp<0.1?Math.min(1,dp*8):strobe*(1-lp*lp));
+      if(alpha<0.015)continue;
 
-    var centerD=Math.sqrt((pt.x-cx)*(pt.x-cx)+(pt.y-cy)*(pt.y-cy));
-    var alpha=Math.min(1,centerD/110)*(1-le*le*0.92)*Math.min(1,lp*5);
-    if(alpha<0.02)continue;
-
-    // block fractures into sub-pixels as it accelerates
-    var fracture=Math.floor(1+le*le*3); // 1 -> 4 sub-blocks
-    var bw=pt.bw*(1+le*0.3)/fracture;
-    var bh=pt.bh*(1+le*0.3)/fracture;
-
-    for(var fx=0;fx<fracture;fx++){
-      for(var fy=0;fy<fracture;fy++){
-        // each sub-block flickers independently
-        var subAlpha=alpha*(0.6+Math.random()*0.4);
-        // slight color variation per sub-block -- bayer-dither feel
-        var dither=Math.random()<0.3?(Math.random()-0.5)*18:0;
-        dCtx.fillStyle="rgba("+
-          Math.min(255,Math.max(0,cr2+dither))+","+
-          Math.min(255,Math.max(0,cg2+dither))+","+
-          Math.min(255,Math.max(0,cb2+dither))+","+subAlpha+")";
-        var ox=(fx-(fracture-1)/2)*bw;
-        var oy=(fy-(fracture-1)/2)*bh;
-        dCtx.fillRect(pt.x+ox-bw/2,pt.y+oy-bh/2,bw-0.5,bh-0.5);
-      }
+      dCtx.fillStyle="rgba("+dr+","+dg+","+db+","+alpha.toFixed(3)+")";
+      dCtx.fillRect(pt.x-pt.bw/2,pt.y-pt.bh/2,pt.bw,pt.bh);
     }
   }
 
-  // warp hero image underneath during early phase
-  if(p<0.3&&heroLoaded)drawHeroImage(Math.min(p*1.9,1));
-
-  // corrupt hub text directly via CSS
+  // corrupt hub text throughout
   glitchHubText(p);
 
   if(!disFlipped&&p>=0.72){
@@ -436,7 +407,7 @@ function drawDis(){
     document.getElementById("side-panel").classList.add("booting");
     doCenterFlash();
   }
-  if(p>=0.80){dCv.style.opacity=String(1-(p-0.80)/0.20);}
+  if(p>=0.82){dCv.style.opacity=String(1-(p-0.82)/0.18);}
   if(p>=1){disActive=false;dCv.style.opacity="0";dCtx.clearRect(0,0,W,H);if(heroLoaded)drawHeroImage(0);}
 }
 
