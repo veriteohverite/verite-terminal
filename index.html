@@ -411,7 +411,7 @@ function samplePixels(){
 function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
-  disProgress=Math.min(disProgress+0.011,1);
+  disProgress=Math.min(disProgress+0.0055,1); // ~3s at 60fps
   var p=disProgress,W=dCv.width,H=dCv.height;
   var cx=disOx*W,cy=disOy*H;
 
@@ -431,11 +431,10 @@ function drawDis(){
   var t=p*180;
   var t2=p*60;
 
-  // Phase 1: slow distortion buildup (0 - 0.45)
-  // Phase 2: fast particle dissolve into black (0.45 - 1.0)
-  var distortP = Math.min(p/0.45, 1);           // 0->1 over first 45%
-  var dissolveP = p>0.45 ? (p-0.45)/0.55 : 0;   // 0->1 over last 55%, faster curve
-  dissolveP = Math.pow(dissolveP, 0.8);           // ease in fast
+  // Phase 1: slow distortion (0 - 0.42)
+  // Phase 2: fast sparse collapse (0.42 - 1.0)
+  var distortP = Math.min(p/0.42, 1);
+  var dissolveP = p>0.42 ? Math.pow((p-0.42)/0.58, 0.75) : 0;
 
   var corrupt = Math.pow(distortP, 1.4) * 0.85;
   var disp = Math.pow(distortP, 1.8) * W * 0.5;
@@ -457,30 +456,20 @@ function drawDis(){
 
       var dx=col-cx, dy=row-cy;
       var dist=Math.sqrt(dx*dx+dy*dy);
-      var normDist=dist/maxDist; // 0=center, 1=far corner
+      var normDist=dist/maxDist;
 
       if(dissolveP>0){
-        // Each pixel has a unique random death time
-        // Edge pixels have lower threshold (die sooner)
-        // Heavy noise breaks up any pattern
         var turbulence=(ns4*ns5)*0.4;
         var noiseField=ns1*0.25+ns2*0.2;
-        var deathThresh=(1-normDist)*0.68 + noiseField + turbulence;
+        var deathThresh=(1-normDist)*0.68+noiseField+turbulence;
         deathThresh=Math.max(0.04,Math.min(0.97,deathThresh));
-
         var dead=dissolveP>deathThresh;
 
         if(dead){
-          // Most dead pixels are pure black -- sparse negative space
-          // Only a tiny fraction glow briefly as they die
-          var deathRecency=dissolveP-deathThresh; // how long since death
-          if(deathRecency<0.06&&Math.random()<0.12){
-            // glow flash on death -- bright for one frame
-            var glowAmt=1-(deathRecency/0.06);
-            var glowR=Math.round(180*glowAmt+ns1*60*glowAmt);
-            var glowG=Math.round(200*glowAmt+ns2*50*glowAmt);
-            var glowB=Math.round(150*glowAmt);
-            dCtx.fillStyle='rgb('+glowR+','+glowG+','+glowB+')';
+          var deathRecency=dissolveP-deathThresh;
+          if(deathRecency<0.05&&Math.random()<0.08){
+            var glowAmt=1-(deathRecency/0.05);
+            dCtx.fillStyle='rgb('+Math.round(160*glowAmt)+','+Math.round(200*glowAmt)+','+Math.round(130*glowAmt)+')';
           } else {
             dCtx.fillStyle='rgb(0,0,0)';
           }
@@ -488,16 +477,16 @@ function drawDis(){
           col+=pw;continue;
         }
 
-        // Surviving pixels -- thin out as dissolve progresses
-        // Skip drawing some pixels entirely (creates black gaps = negative space)
-        var survivalChance=1-dissolveP*dissolveP*0.85;
+        // More black space -- much more aggressive thinning
+        // survivialChance drops fast so mostly black by mid-dissolve
+        var survivalChance=Math.pow(1-dissolveP,1.6)*0.55;
         if(Math.random()>survivalChance){
           dCtx.fillStyle='rgb(0,0,0)';
           dCtx.fillRect(col,row,pw,ph);
           col+=pw;continue;
         }
 
-        // Surviving pixels fade toward black and get pulled toward center
+        // surviving pixel -- displace + pull toward center
         var sx=col,sy=row;
         if(corrupt>0&&ns3<corrupt){
           var ang2=ns1*Math.PI*2;
@@ -507,12 +496,9 @@ function drawDis(){
           sx=Math.round(col+Math.cos(ang2)*mag);
           sy=Math.round(row+Math.sin(ang2)*mag*0.55);
         }
-
-        // Pull surviving pixels toward center as dissolve accelerates
-        var pull=Math.pow(dissolveP,2)*0.6;
+        var pull=Math.pow(dissolveP,2)*0.65;
         sx=Math.round((sx||col)+(cx-col)*pull);
         sy=Math.round((sy||row)+(cy-row)*pull);
-
         sx=Math.max(0,Math.min(W-1,sx));
         sy=Math.max(0,Math.min(H-1,sy));
         var pi=(sy*W+sx)*4;
@@ -520,27 +506,27 @@ function drawDis(){
         var pg=imgData.data[pi+1];
         var pb=imgData.data[pi+2];
 
-        // Darken surviving pixels as they approach death
+        // Darken toward black
         var proximity=Math.max(0,1-(deathThresh-dissolveP)*4);
-        var darkAmt=proximity*proximity*0.9+dissolveP*0.3;
+        var darkAmt=proximity*proximity*0.9+dissolveP*0.35;
         pr=Math.round(pr*Math.max(0,1-darkAmt));
         pg=Math.round(pg*Math.max(0,1-darkAmt));
         pb=Math.round(pb*Math.max(0,1-darkAmt));
 
-        // Glow: pixels near center brighten slightly as they get sucked in
+        // Center glow on surviving pixels near center
         var centerProx=1-(dist/maxDist);
-        if(dissolveP>0.3&&centerProx>0.5){
-          var glowPull=centerProx*dissolveP*0.4;
-          pr=Math.min(255,Math.round(pr+ns1*80*glowPull));
-          pg=Math.min(255,Math.round(pg+ns2*90*glowPull));
-          pb=Math.min(255,Math.round(pb+60*glowPull));
+        if(dissolveP>0.35&&centerProx>0.45){
+          var glowPull=centerProx*dissolveP*0.45;
+          pr=Math.min(255,Math.round(pr+ns1*70*glowPull));
+          pg=Math.min(255,Math.round(pg+ns2*80*glowPull));
+          pb=Math.min(255,Math.round(pb+50*glowPull));
         }
 
         dCtx.fillStyle='rgb('+pr+','+pg+','+pb+')';
         dCtx.fillRect(col,row,pw,ph);
 
       } else {
-        // Distortion phase only -- displace pixels, no dying
+        // distortion only
         var sx2=col,sy2=row;
         if(corrupt>0&&ns3<corrupt){
           var ang3=ns1*Math.PI*2;
@@ -562,8 +548,8 @@ function drawDis(){
     row+=ph;
   }
 
-  // Jump blocks during distortion phase
-  if(p>0.1&&p<0.55){
+  // Jump blocks during distortion phase only
+  if(p>0.08&&p<0.48){
     var numJumps=Math.round(corrupt*corrupt*10);
     for(var j=0;j<numJumps;j++){
       var jx=Math.floor(Math.sin(j*17.3+t*1.1)*0.5*W+W/2);
@@ -580,19 +566,19 @@ function drawDis(){
     }
   }
 
-  // Center glow flash as everything collapses
-  if(dissolveP>0.5){
-    var glowR2=Math.pow((dissolveP-0.5)/0.5,2);
-    var glowSize=maxDist*0.15*glowR2;
-    var grad=dCtx.createRadialGradient(cx,cy,0,cx,cy,glowSize);
-    grad.addColorStop(0,'rgba(220,240,200,'+(glowR2*0.7).toFixed(2)+')');
-    grad.addColorStop(0.4,'rgba(150,180,120,'+(glowR2*0.3).toFixed(2)+')');
+  // Center glow grows as everything collapses in
+  if(dissolveP>0.4){
+    var gr=Math.pow((dissolveP-0.4)/0.6,2);
+    var glowSize=maxDist*0.18*gr;
+    var grad=dCtx.createRadialGradient(cx,cy,0,cx,cy,Math.max(1,glowSize));
+    grad.addColorStop(0,'rgba(220,245,190,'+(gr*0.75).toFixed(2)+')');
+    grad.addColorStop(0.35,'rgba(140,180,100,'+(gr*0.35).toFixed(2)+')');
     grad.addColorStop(1,'rgba(0,0,0,0)');
     dCtx.fillStyle=grad;
     dCtx.fillRect(cx-glowSize,cy-glowSize,glowSize*2,glowSize*2);
   }
 
-  // Final collapse
+  // Final collapse to black
   if(p>0.85){
     var ep=Math.pow((p-0.85)/0.15,1.5);
     dCtx.fillStyle='rgba(0,0,0,'+ep.toFixed(3)+')';
