@@ -285,6 +285,7 @@ window.addEventListener("resize",resizeHero);
 // Load image async -- page renders first, image loads in background
 window.addEventListener("DOMContentLoaded",function(){
   setTimeout(function(){
+    srcImg.crossOrigin="anonymous";
     srcImg.onload=initHero;
     srcImg.src=HERO_IMAGE_URL;
   },50);
@@ -300,24 +301,70 @@ resizeD();window.addEventListener("resize",resizeD);
 
 function samplePixels(){
   PIXELS=[];
-  var W=dCv.width,H=dCv.height,cx=disOx*W,cy=disOy*H,BS=16;
+  var W=dCv.width,H=dCv.height;
+  var cx=disOx*W,cy=disOy*H;
+  // sample image at pixel-block resolution
+  var offCv=document.createElement("canvas");
+  offCv.width=W;offCv.height=H;
+  var offCtx=offCv.getContext("2d");
+  var iw=srcImg.naturalWidth,ih=srcImg.naturalHeight,ir=iw/ih,cr=W/H,sw,sh,sx,sy;
+  if(cr>ir){sw=iw;sh=sw/cr;sx=0;sy=(ih-sh)*0.5;}else{sh=ih;sw=sh*cr;sx=(iw-sw)*0.5;sy=0;}
+  offCtx.drawImage(srcImg,sx,sy,sw,sh,0,0,W,H);
+  var imgData;
+  try{imgData=offCtx.getImageData(0,0,W,H);}catch(e){imgData=null;}
+
+  // mix of small blocks (pixel feel) and occasional chars
+  var BS=16; // base block size
   for(var r=0;r<H;r+=BS){
     for(var c=0;c<W;c+=BS){
       var px=c+BS/2,py=r+BS/2;
-      var ny=py/H,nx=px/W;
-      var pr=Math.floor(40+ny*60+Math.random()*30);
-      var pg=Math.floor(55+ny*45+Math.random()*40+(1-ny)*20);
-      var pb=Math.floor(20+ny*30+Math.random()*20);
-      if(Math.random()<0.06){pr=180+Math.floor(Math.random()*60);pg=pr;pb=pr-10;}
+      var dx=px-cx,dy=py-cy;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      var delay=0.04+Math.random()*0.52;
+      var pr=80,pg=90,pb=70;
+      if(imgData){
+        var pi=(Math.floor(py)*W+Math.floor(px))*4;
+        pr=imgData.data[pi]||0;pg=imgData.data[pi+1]||0;pb=imgData.data[pi+2]||0;
+      }
+      // vary block size for organic feel
+      var blockW=BS*(0.6+Math.random()*0.8);
+      var blockH=BS*(0.6+Math.random()*0.8);
+      // some become char overlays
       PIXELS.push({
-        x:px,y:py,bw:BS*(0.6+Math.random()*0.8),bh:BS*(0.6+Math.random()*0.8),
-        r:pr,g:pg,b:pb,delay:0.04+Math.random()*0.52,
-        pulse:Math.random()*Math.PI*2,pulse2:Math.random()*Math.PI*2,
+        x:px,y:py,
+        bw:blockW,bh:blockH,
+        r:pr,g:pg,b:pb,
+        delay:delay,
+        pulse:Math.random()*Math.PI*2,
+        pulse2:Math.random()*Math.PI*2,
         pulseRate:0.06+Math.random()*0.14
       });
     }
   }
 }
+
+function glitchHubText(p){
+  var div=document.getElementById("hero-text-div");
+  if(!div)return;
+  if(p<=0.05){div.style.filter="";div.style.opacity="1";return;}
+  var intensity=Math.min((p-0.05)/0.5,1);
+  // pixelation: blur + contrast pumped way up = blocky pixel look
+  var blurPx=(intensity*intensity*14).toFixed(1);
+  var contrast=(1+intensity*4).toFixed(2);
+  var saturate=Math.max(0,1-intensity*1.2).toFixed(2);
+  div.style.filter="blur("+blurPx+"px) contrast("+contrast+") saturate("+saturate+")";
+  // also randomly jitter position for glitch feel
+  if(Math.random()<intensity*0.6){
+    var jx=((Math.random()-0.5)*intensity*12).toFixed(1);
+    var jy=((Math.random()-0.5)*intensity*6).toFixed(1);
+    div.style.transform="translate("+jx+"px,"+jy+"px)";
+  } else {
+    div.style.transform="";
+  }
+  // fade out text at high intensity
+  div.style.opacity=String(Math.max(0,1-intensity*1.1).toFixed(2));
+}
+
 function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
