@@ -411,7 +411,7 @@ function samplePixels(){
 function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
-  disProgress=Math.min(disProgress+0.007,1);
+  disProgress=Math.min(disProgress+0.013,1); // faster -- ~2.2s total
   var p=disProgress,W=dCv.width,H=dCv.height;
   var cx=disOx*W,cy=disOy*H;
 
@@ -426,48 +426,50 @@ function drawDis(){
     return;
   }
 
-  // Smooth canvas fade in over first 8%
-  dCv.style.opacity=Math.min(p/0.08,1).toFixed(3);
+  dCv.style.opacity=Math.min(p/0.06,1).toFixed(3);
 
-  // Fast-changing noise seeds -- makes every frame different
-  var t=p*180; // fast tick
+  var t=p*180;
   var t2=p*60;
+  var corrupt=p<0.06?0:Math.min((p-0.06)/0.45,1);
+  var disp=p<0.06?0:Math.pow((p-0.06)/0.94,2.0)*W*0.45;
 
-  // How much corruption, how much displacement
-  var corrupt=p<0.08?0:Math.min((p-0.08)/0.55,1);
-  var disp=p<0.08?0:Math.pow((p-0.08)/0.92,2.2)*W*0.45;
+  var maxDist=Math.sqrt(Math.max(cx,W-cx)*Math.max(cx,W-cx)+Math.max(cy,H-cy)*Math.max(cy,H-cy));
 
-  // Dissolve: pixels start dying off randomly and collapsing to black
-  var dStart=0.55;
-  var dP=p>dStart?Math.pow((p-dStart)/(1-dStart),1.4):0;
+  // Dissolve starts early, edges first
+  var dStart=0.38;
+  var dP=p>dStart?Math.pow((p-dStart)/(1-dStart),1.3):0;
 
   var row=0;
   while(row<H){
-    // Pixel height: 2, 3, 4, 5, or 6 -- seeded by position+time for flicker
     var ph=2+Math.floor((Math.sin(row*19.7+t*0.31)*0.5+0.5)*4.99);
     var col=0;
     while(col<W){
       var pw=2+Math.floor((Math.sin(col*23.1+row*11.3+t*0.27)*0.5+0.5)*4.99);
 
-      var sx=col,sy=row;
-
-      // Per-pixel random seed -- changes every frame so it flickers
       var ns1=Math.sin(col*7.1+row*13.3+t*1.7)*0.5+0.5;
       var ns2=Math.sin(col*3.7+row*5.9+t*2.3)*0.5+0.5;
       var ns3=Math.sin(col*11.3+row*2.7+t2*3.1)*0.5+0.5;
 
-      // Dissolve: each pixel has a random death threshold
-      // Once progress passes its threshold, pixel collapses to black
-      var deathThresh=ns1*0.45+0.1; // spread deaths from p=0.1 to p=0.55+
-      var dead=dP>0&&(dP>ns2*0.9+0.1);
+      // Distance from center, normalized 0=center 1=far edge
+      var dx=col-cx,dy=row-cy;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      var normDist=dist/maxDist;
+
+      // Spiral: offset death threshold by angle so it sweeps around
+      var angle=Math.atan2(dy,dx); // -PI to PI
+      var spiralOffset=(angle/(Math.PI*2)+0.5)*0.18; // small angular nudge
+
+      // Edge pixels die first: high normDist = low death threshold
+      // Center pixels die last
+      var deathThresh=(1-normDist)*0.75+spiralOffset+ns1*0.12;
+      // dP needs to exceed deathThresh for pixel to die
+      var dead=dP>deathThresh;
 
       if(dead){
-        // pixel is dead -- draw black
-        // but add a little flicker right as it dies (brief bright flash)
-        var deathEdge=Math.max(0,1-Math.abs(dP-deathThresh)*8);
-        if(deathEdge>0.1){
-          var flash=Math.round(deathEdge*180);
-          dCtx.fillStyle='rgb('+flash+','+flash+','+flash+')';
+        var deathEdge=Math.max(0,1-(dP-deathThresh)*6);
+        if(deathEdge>0.15){
+          var fl=Math.round(deathEdge*140);
+          dCtx.fillStyle='rgb('+fl+','+fl+','+fl+')';
         } else {
           dCtx.fillStyle='rgb(0,0,0)';
         }
@@ -475,16 +477,15 @@ function drawDis(){
         col+=pw;continue;
       }
 
-      // Living pixels -- sample from displaced position
+      // Living pixels -- random displacement, no directional bias
+      var sx=col,sy=row;
       if(corrupt>0&&ns3<corrupt){
-        // displacement: fully random direction, not horizontal biased
-        var angle=ns1*Math.PI*2; // any direction
+        var ang2=ns1*Math.PI*2;
         var mag=(ns2*0.7+0.3)*disp*corrupt;
-        // extra chaos: some pixels jump FAR (codec error feel)
         if(ns1>0.88) mag*=2.5;
         if(ns2>0.92) mag*=3.5;
-        sx=Math.round(col+Math.cos(angle)*mag);
-        sy=Math.round(row+Math.sin(angle)*mag*0.6);
+        sx=Math.round(col+Math.cos(ang2)*mag);
+        sy=Math.round(row+Math.sin(ang2)*mag*0.6);
       }
 
       sx=Math.max(0,Math.min(W-1,sx));
@@ -494,12 +495,12 @@ function drawDis(){
       var pg=imgData.data[pi+1];
       var pb=imgData.data[pi+2];
 
-      // Pixels near death fade toward black
+      // Fade living pixels toward black near their death
       if(dP>0){
-        var fade=Math.min(dP*1.8,1)*ns2;
-        pr=Math.round(pr*(1-fade));
-        pg=Math.round(pg*(1-fade));
-        pb=Math.round(pb*(1-fade));
+        var proximity=Math.max(0,1-(deathThresh-dP)*4);
+        pr=Math.round(pr*(1-proximity*0.7));
+        pg=Math.round(pg*(1-proximity*0.7));
+        pb=Math.round(pb*(1-proximity*0.7));
       }
 
       dCtx.fillStyle='rgb('+pr+','+pg+','+pb+')';
@@ -509,29 +510,25 @@ function drawDis(){
     row+=ph;
   }
 
-  // Occasional full random glitch block -- a chunk of image from wrong place
-  // Flickers in and out rapidly (changes every frame)
-  if(p>0.18&&p<0.75){
-    var numJumps=Math.round(corrupt*corrupt*12);
+  // Random jump blocks -- flicker in/out, change every frame
+  if(p>0.15&&p<0.72){
+    var numJumps=Math.round(corrupt*corrupt*10);
     for(var j=0;j<numJumps;j++){
       var jx=Math.floor(Math.sin(j*17.3+t*1.1)*0.5*W+W/2);
       var jy=Math.floor(Math.sin(j*11.7+t*0.9)*0.5*H+H/2);
       var jw=Math.floor(Math.sin(j*7.1+t*1.4)*0.5*80+20);
       var jh=Math.floor(Math.sin(j*5.3+t*1.6)*0.5*40+8);
-      // source from random other part of image
       var fromX=Math.floor(Math.sin(j*3.1+t2)*0.5*W+W/2);
       var fromY=Math.floor(Math.sin(j*9.7+t2*1.3)*0.5*H+H/2);
       fromX=Math.max(0,Math.min(W-jw-1,fromX));
       fromY=Math.max(0,Math.min(H-jh-1,fromY));
       jx=Math.max(0,Math.min(W-jw-1,jx));
       jy=Math.max(0,Math.min(H-jh-1,jy));
-      if(offCanvas){
-        dCtx.drawImage(offCanvas,fromX,fromY,jw,jh,jx,jy,jw,jh);
-      }
+      if(offCanvas) dCtx.drawImage(offCanvas,fromX,fromY,jw,jh,jx,jy,jw,jh);
     }
   }
 
-  // Final collapse -- everything dims to black, no flash
+  // Collapse to black at end
   if(p>0.82){
     var ep=Math.pow((p-0.82)/0.18,1.5);
     dCtx.fillStyle='rgba(0,0,0,'+ep.toFixed(3)+')';
