@@ -405,154 +405,130 @@ function sampleImagePixels(){
 }
 
 function samplePixels(){
-  // no-op for datamosh approach -- we work directly from offCanvas
+  // no-op -- drawDis works directly from imgData
 }
 
 function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
-  disProgress=Math.min(disProgress+0.009,1);
+  disProgress=Math.min(disProgress+0.008,1);
   var p=disProgress,W=dCv.width,H=dCv.height;
-  var img=document.getElementById("hub-img");
 
   dCtx.clearRect(0,0,W,H);
 
-  // source: use offCanvas if available, else live img
-  var src=offCanvas||img;
-
-  // Phase 1 (0-0.15): subtle -- image stable, tiny drift starting
-  // Phase 2 (0.15-0.55): datamosh -- bands smear, RGB splits, compression artifacts
-  // Phase 3 (0.55-0.85): full corruption -- wide band smears, color bleeding
-  // Phase 4 (0.85-1.0): white flash then collapse to black
-
-  var phase = p<0.15?1 : p<0.55?2 : p<0.85?3 : 4;
-  var pt = phase===1?(p/0.15) : phase===2?((p-0.15)/0.4) : phase===3?((p-0.55)/0.3) : ((p-0.85)/0.15);
-
-  if(phase===4){
-    // white flash -> black
-    var flash = pt<0.3 ? pt/0.3 : 1-(pt-0.3)/0.7;
-    dCtx.fillStyle='rgb('+Math.round(flash*255)+','+Math.round(flash*240)+','+Math.round(flash*230)+')';
+  if(!imgData){
+    // no image data -- just fade to black
+    dCtx.fillStyle='rgba(0,0,0,'+p+')';
     dCtx.fillRect(0,0,W,H);
-    // dark overlay coming in
-    dCtx.fillStyle='rgba(0,0,0,'+Math.min((pt-0.2)*1.4,1).toFixed(2)+')';
-    dCtx.fillRect(0,0,W,H);
-    glitchHubText(1);
-    if(!disFlipped&&p>=0.88){
-      disFlipped=true;
-      document.getElementById("hub").classList.add("gone");
-      document.getElementById("terminal").classList.add("live");
-      document.getElementById("main-panel").classList.add("booting");
-      document.getElementById("side-panel").classList.add("booting");
-      doCenterFlash();
-    }
+    glitchHubText(p);
+    if(!disFlipped&&p>=0.7){flip();}
     if(p>=1){disActive=false;dCv.style.opacity="0";}
     return;
   }
 
-  // Number of slices -- increases with phase
-  var numSlices = phase===1 ? 20 : phase===2 ? 14 : 8;
-  var sliceH = H / numSlices;
+  // Datamosh: redraw image pixel-by-pixel in small blocks
+  // Each block reads from a DISPLACED position in imgData
+  // Displacement grows over time -- image samples wrong regions of itself
+  var BS=4; // 4px blocks -- tiny and sharp
+  var frame=Math.floor(p*60); // fake frame counter
 
-  // Global RGB separation amount
-  var rgbAmt = phase===1 ? pt*4 : phase===2 ? 4+pt*28 : 32+pt*20;
+  // How much displacement we apply -- ramps up hard
+  var dispAmt = p<0.2 ? 0 : Math.pow((p-0.2)/0.8, 2) * W * 0.6;
+  // How many blocks get displaced vs staying correct
+  var corruptChance = p<0.15 ? 0 : Math.min((p-0.15)/0.4, 1);
+  // Block freeze: some blocks "stuck" reading from an earlier moment
+  var freezeAmt = p<0.3 ? 0 : Math.min((p-0.3)/0.4, 1);
 
-  // Draw RGB channels separately for chromatic aberration
-  // Red channel -- shifted right
-  dCtx.save();
-  dCtx.globalAlpha = phase===1 ? 0.5 : 0.6;
-  dCtx.globalCompositeOperation = 'source-over';
+  for(var r=0;r<H;r+=BS){
+    for(var c=0;c<W;c+=BS){
+      var sx=c, sy=r;
 
-  for(var s=0;s<numSlices;s++){
-    var sy2=s*sliceH;
-    var norm=s/numSlices;
+      if(Math.random()<corruptChance){
+        // datamosh displacement -- sample from wrong position
+        // horizontal smear dominates (like video codec error)
+        var rowNoise = Math.sin(r*0.08 + frame*0.7)*0.5+0.5;
+        var blockNoise = Math.sin(c*0.05 + r*0.03 + frame*1.1)*0.5+0.5;
 
-    // Each slice gets its own drift
-    // Data mosh: slices STRETCH horizontally (smear), not just shift
-    var seed=Math.sin(s*7.3+p*12)*0.5+0.5;
-    var seed2=Math.sin(s*3.1+p*8)*0.5+0.5;
+        // Some rows get big horizontal displacement (like a stuck frame)
+        var rowGroup = Math.floor(r / (BS * (3+Math.floor(rowNoise*8))));
+        var rowFrozen = Math.sin(rowGroup*13.7 + Math.floor(p*8))*0.5+0.5 > (1-freezeAmt*0.7);
 
-    var drift, stretch, yOffset;
-
-    if(phase===1){
-      drift=(seed-0.5)*pt*8;
-      stretch=1+pt*0.02;
-      yOffset=0;
-    } else if(phase===2){
-      // bands smear and jump -- datamosh feel
-      var big=Math.sin(s*1.7+p*6)>0.3?1:0; // some bands get big displacement
-      drift=(seed-0.5)*(big?pt*pt*120:pt*20);
-      stretch=1+pt*pt*(big?0.4:0.1);
-      yOffset=(seed2-0.5)*pt*6;
-    } else {
-      // phase 3: massive smear, bands merging
-      var mega=s%3===0;
-      drift=(seed-0.5)*(mega?pt*200:pt*80);
-      stretch=1+pt*(mega?1.2:0.5);
-      yOffset=(seed2-0.5)*pt*15;
-      sliceH=H/numSlices*(mega?2.5:0.8); // uneven band heights
-    }
-
-    // clip to band
-    dCtx.save();
-    dCtx.beginPath();
-    dCtx.rect(0,sy2,W,sliceH+1);
-    dCtx.clip();
-
-    // Draw base band (green/normal)
-    dCtx.drawImage(src, drift, yOffset, W*stretch, H);
-
-    // RGB split -- draw red offset
-    if(phase>1){
-      dCtx.globalCompositeOperation='screen';
-      dCtx.globalAlpha=0.25+pt*0.2;
-      // Red: shift right
-      dCtx.filter='saturate(0) brightness(2)';
-      dCtx.drawImage(src, drift+rgbAmt, yOffset, W*stretch, H);
-      // Blue: shift left  
-      dCtx.drawImage(src, drift-rgbAmt*0.7, yOffset+rgbAmt*0.3, W*stretch, H);
-      dCtx.filter='none';
-      dCtx.globalCompositeOperation='source-over';
-      dCtx.globalAlpha=1;
-    }
-
-    dCtx.restore();
-  }
-
-  dCtx.restore();
-
-  // Overlay: compression block artifacts (random rectangles in wrong colors)
-  if(phase>=2){
-    var numBlocks=Math.round(pt*pt*30);
-    for(var b=0;b<numBlocks;b++){
-      var bx=Math.random()*W,by=Math.random()*H;
-      var bw=20+Math.random()*80,bh=4+Math.random()*20;
-      // sample color from image at that position
-      var pi=null,br=80,bg2=120,bb=60;
-      if(imgData){
-        var pix=(Math.floor(by)*W+Math.floor(bx))*4;
-        br=imgData.data[pix]||80;
-        bg2=imgData.data[pix+1]||120;
-        bb=imgData.data[pix+2]||60;
+        if(rowFrozen){
+          // this row reads from a completely different horizontal position
+          sx = c + (rowNoise-0.5)*dispAmt*1.4;
+          sy = r + (blockNoise-0.5)*dispAmt*0.08;
+        } else {
+          // normal corruption -- smaller random displacement
+          sx = c + (blockNoise-0.5)*dispAmt*0.35;
+          sy = r + (Math.random()-0.5)*dispAmt*0.04;
+        }
       }
-      // shift color (wrong block -- typical datamosh artifact)
-      var shift=Math.floor(Math.random()*3);
-      if(shift===0){dCtx.fillStyle='rgba('+Math.min(br+80,255)+','+bg2+','+bb+',0.7)';}
-      else if(shift===1){dCtx.fillStyle='rgba('+br+','+Math.min(bg2+60,255)+','+Math.min(bb+100,255)+',0.6)';}
-      else{dCtx.fillStyle='rgba('+Math.min(br+100,255)+','+Math.floor(bg2*0.3)+','+bb+',0.65)';}
-      dCtx.fillRect(bx,by,bw,bh);
+
+      // clamp to image bounds
+      sx = Math.max(0,Math.min(W-1,Math.round(sx)));
+      sy = Math.max(0,Math.min(H-1,Math.round(sy)));
+
+      // read pixel from imgData at displaced position
+      var pi=(sy*W+sx)*4;
+      var pr=imgData.data[pi];
+      var pg=imgData.data[pi+1];
+      var pb=imgData.data[pi+2];
+
+      // late stage: desaturate and darken
+      if(p>0.55){
+        var dk=(p-0.55)/0.45;
+        var gray=0.299*pr+0.587*pg+0.114*pb;
+        pr=Math.round(pr+(gray-pr)*dk*0.8);
+        pg=Math.round(pg+(gray-pg)*dk*0.8);
+        pb=Math.round(pb+(gray-pb)*dk*0.8);
+        var bright=1-dk*0.95;
+        pr=Math.round(pr*bright);pg=Math.round(pg*bright);pb=Math.round(pb*bright);
+      }
+
+      dCtx.fillStyle='rgb('+pr+','+pg+','+pb+')';
+      dCtx.fillRect(c,r,BS,BS);
     }
   }
 
-  // Dark overlay building in phase 3
-  if(phase===3){
-    dCtx.fillStyle='rgba(0,0,0,'+(pt*0.7).toFixed(2)+')';
+  // Thin horizontal glitch lines -- pure datamosh artifact
+  // Random rows that read from totally wrong y position
+  if(p>0.25){
+    var lineCount=Math.round(Math.pow((p-0.25)/0.75,2)*20);
+    for(var l=0;l<lineCount;l++){
+      var ly=Math.floor(Math.random()*H/BS)*BS;
+      var fromY=Math.floor(Math.random()*H/BS)*BS;
+      fromY=Math.max(0,Math.min(H-1,fromY));
+      for(var lc=0;lc<W;lc+=BS){
+        var lpi=(fromY*W+lc)*4;
+        dCtx.fillStyle='rgb('+imgData.data[lpi]+','+imgData.data[lpi+1]+','+imgData.data[lpi+2]+')';
+        dCtx.fillRect(lc,ly,BS,BS);
+      }
+    }
+  }
+
+  // Final flash to white then black
+  if(p>0.82){
+    var ep=(p-0.82)/0.18;
+    var flashPeak=ep<0.4?ep/0.4:1-(ep-0.4)/0.6;
+    dCtx.fillStyle='rgba(255,252,248,'+( flashPeak*0.9).toFixed(2)+')';
+    dCtx.fillRect(0,0,W,H);
+    dCtx.fillStyle='rgba(0,0,0,'+(Math.max(0,ep-0.35)/0.65).toFixed(2)+')';
     dCtx.fillRect(0,0,W,H);
   }
 
-  // Text corruption
   glitchHubText(p);
 
+  if(!disFlipped&&p>=0.88){flip();}
   if(p>=1){disActive=false;dCv.style.opacity="0";}
+}
+
+function flip(){
+  disFlipped=true;
+  document.getElementById("hub").classList.add("gone");
+  document.getElementById("terminal").classList.add("live");
+  document.getElementById("main-panel").classList.add("booting");
+  document.getElementById("side-panel").classList.add("booting");
+  doCenterFlash();
 }
 
 
