@@ -243,9 +243,17 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:default;user-select:none
 
 <div id="hub">
   <img id="hub-img" src="hero.png" alt="">
-  <div class="glitch-layer glitch-layer-1" id="gl1"></div>
-  <div class="glitch-layer glitch-layer-2" id="gl2"></div>
-  <div class="glitch-layer glitch-layer-3" id="gl3"></div>
+  <canvas id="dis-canvas" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;z-index:6;"></canvas>
+  <div class="glitch-layer gl-base" id="gl-base"></div>
+  <div class="glitch-layer gl-rgb-r" id="gl-rgb-r"></div>
+  <div class="glitch-layer gl-rgb-b" id="gl-rgb-b"></div>
+  <div class="glitch-layer gl-slice gl-slice-a" id="gl-sa"></div>
+  <div class="glitch-layer gl-slice gl-slice-b" id="gl-sb"></div>
+  <div class="glitch-layer gl-slice gl-slice-c" id="gl-sc"></div>
+  <div class="glitch-layer gl-slice gl-slice-d" id="gl-sd"></div>
+  <div class="glitch-layer gl-slice gl-slice-e" id="gl-se"></div>
+  <div class="glitch-layer gl-slice gl-slice-f" id="gl-sf"></div>
+  <div class="glitch-layer gl-pixels" id="gl-px"></div>
   <div id="hub-blackout"></div>
   <div id="hero-text">
     <div class="hero-album">I Took Another Bite from an Apple Cause I Woke Up Starving<br>New Album -- Fall 2026</div>
@@ -365,27 +373,218 @@ function glitchReveal(el,ft,dur,cb){
 
 // -- CSS GLITCH TRANSITION --
 var glitchActive=false;
+  disActive=false;disProgress=0;disFlipped=false;
+  if(dCv)dCv.style.opacity="0";
+  var div=document.getElementById("hero-text");if(div){div.style.filter="";div.style.opacity="1";div.style.transform="";}
 
-function setGlitchBg(){
-  // Set background-image on glitch layers to match hero
-  var url="url('"+HERO_IMAGE_URL+"')";
-  ['gl1','gl2','gl3'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el){el.style.backgroundImage=url;el.style.backgroundSize="cover";el.style.backgroundPosition="center";}
-  });
+// -- CANVAS PIXEL DISSOLVE --
+var dCv=null,dCtx=null,PIXELS=[],imgData=null,disActive=false,disProgress=0,disFlipped=false,disOx=0.5,disOy=0.5;
+
+function initCanvas(){
+  dCv=document.getElementById("dis-canvas");
+  dCv.width=window.innerWidth;
+  dCv.height=window.innerHeight;
+  dCtx=dCv.getContext("2d");
 }
 
-document.getElementById("enter-btn").addEventListener("click",function(){
-  if(glitchActive)return;
-  glitchActive=true;
-  setGlitchBg();
-  document.getElementById("hub").classList.add("glitching");
-  // flip to terminal after CSS animation completes
-  setTimeout(function(){
+// Sample image pixels early, at page load
+function sampleImagePixels(){
+  if(!dCv)initCanvas();
+  var img=document.getElementById("hub-img");
+  var W=dCv.width,H=dCv.height;
+  // draw img to offscreen canvas to sample
+  var off=document.createElement("canvas");
+  off.width=W;off.height=H;
+  var octx=off.getContext("2d");
+  var iw=img.naturalWidth||W,ih=img.naturalHeight||H;
+  var ir=iw/ih,cr=W/H,sw,sh,sx,sy;
+  if(cr>ir){sw=iw;sh=sw/cr;sx=0;sy=(ih-sh)*0.5;}
+  else{sh=ih;sw=sh*cr;sx=(iw-sw)*0.5;sy=0;}
+  octx.drawImage(img,sx,sy,sw,sh,0,0,W,H);
+  try{imgData=octx.getImageData(0,0,W,H);}catch(e){imgData=null;}
+}
+
+function samplePixels(){
+  PIXELS=[];
+  var W=dCv.width,H=dCv.height,BS=16;
+  var cx=disOx*W,cy=disOy*H;
+  for(var r=0;r<H;r+=BS){
+    for(var c=0;c<W;c+=BS){
+      var px=c+BS/2,py=r+BS/2;
+      var pr=80,pg=90,pb=70;
+      if(imgData){
+        var pi=(Math.floor(py)*W+Math.floor(px))*4;
+        pr=imgData.data[pi]||0;
+        pg=imgData.data[pi+1]||0;
+        pb=imgData.data[pi+2]||0;
+      } else {
+        // fallback: position-derived colors
+        var ny=py/H;
+        pr=Math.floor(40+ny*60+Math.random()*30);
+        pg=Math.floor(55+ny*45+Math.random()*40+(1-ny)*20);
+        pb=Math.floor(20+ny*30+Math.random()*20);
+        if(Math.random()<0.06){pr=180+Math.floor(Math.random()*60);pg=pr;pb=pr-10;}
+      }
+      PIXELS.push({
+        x:px,y:py,r:pr,g:pg,b:pb,
+        bw:BS*(0.6+Math.random()*0.8),bh:BS*(0.6+Math.random()*0.8),
+        delay:0.04+Math.random()*0.52,
+        pulse:Math.random()*Math.PI*2,
+        pulse2:Math.random()*Math.PI*2,
+        pulseRate:0.06+Math.random()*0.14
+      });
+    }
+  }
+}
+
+function drawDis(){
+  if(!disActive)return;
+  requestAnimationFrame(drawDis);
+  disProgress=Math.min(disProgress+0.01,1);
+  var p=disProgress,W=dCv.width,H=dCv.height;
+  var cx=disOx*W,cy=disOy*H;
+  dCtx.clearRect(0,0,W,H);
+
+  // image glitch layers behind particles
+  var img=document.getElementById("hub-img");
+  if(p<0.72){
+    // slice drift
+    var slices=8,sliceH=H/slices;
+    for(var s=0;s<slices;s++){
+      var sp=Math.max(0,(p-0.05)/0.65);
+      var drift=Math.sin(s*2.3+p*18)*(sp*sp)*38*(s%2===0?1:-1);
+      dCtx.save();
+      dCtx.beginPath();
+      dCtx.rect(0,s*sliceH,W,sliceH+1);
+      dCtx.clip();
+      dCtx.drawImage(img,drift,0,W,H);
+      dCtx.restore();
+    }
+    // chromatic aberration
+    if(p>0.25){
+      var ab=Math.min((p-0.25)/0.45,1);
+      dCtx.globalAlpha=ab*0.28;
+      dCtx.globalCompositeOperation='screen';
+      // red shift
+      dCtx.filter='saturate(3) hue-rotate(330deg)';
+      dCtx.drawImage(img,ab*18,0,W,H);
+      // blue shift
+      dCtx.filter='saturate(3) hue-rotate(210deg)';
+      dCtx.drawImage(img,-ab*14,ab*4,W,H);
+      dCtx.globalAlpha=1;
+      dCtx.globalCompositeOperation='source-over';
+      dCtx.filter='none';
+    }
+    // darken
+    var dk=Math.max(0,(p-0.3)/0.42);
+    dCtx.fillStyle='rgba(0,0,0,'+Math.min(dk*dk*0.85,0.85)+')';
+    dCtx.fillRect(0,0,W,H);
+  }
+
+  // particle blocks
+  var now=Date.now()/1000;
+  for(var i=0;i<PIXELS.length;i++){
+    var px2=PIXELS[i];
+    var lp=Math.max(0,(p-px2.delay)/(1-px2.delay));
+    if(lp<=0)continue;
+    var le=lp*lp*lp;
+    // inward pull
+    var dx=cx-px2.x,dy=cy-px2.y;
+    var nx2=px2.x+dx*le*0.92,ny2=px2.y+dy*le*0.92;
+    // pulse size
+    var pulse=Math.sin(now*4+px2.pulse)*0.18+Math.sin(now*1.2+px2.pulse2)*0.12;
+    var bw2=px2.bw*(1+pulse)*(1-le*0.7);
+    var bh2=px2.bh*(1+pulse)*(1-le*0.7);
+    if(bw2<0.5||bh2<0.5)continue;
+    // color desaturates toward end
+    var gray=0.299*px2.r+0.587*px2.g+0.114*px2.b;
+    var desat=Math.min(le*1.4,1);
+    var fr=Math.round(px2.r+(gray-px2.r)*desat);
+    var fg=Math.round(px2.g+(gray-px2.g)*desat);
+    var fb=Math.round(px2.b+(gray-px2.b)*desat);
+    var bright=1-le*0.9;
+    fr=Math.round(fr*bright);fg=Math.round(fg*bright);fb=Math.round(fb*bright);
+    var alpha=Math.max(0,1-le*1.05);
+    if(alpha<0.02)continue;
+    // bayer noise
+    var bayer=((i%4)*0.04-(Math.floor(i/4)%4)*0.02);
+    fr=Math.min(255,Math.max(0,fr+Math.round(bayer*30)));
+    fg=Math.min(255,Math.max(0,fg+Math.round(bayer*25)));
+    fb=Math.min(255,Math.max(0,fb+Math.round(bayer*20)));
+    dCtx.fillStyle='rgba('+fr+','+fg+','+fb+','+alpha.toFixed(2)+')';
+    dCtx.fillRect(nx2-bw2/2,ny2-bh2/2,bw2,bh2);
+  }
+
+  // text corruption
+  glitchHubText(p);
+
+  // flip
+  if(!disFlipped&&p>=0.72){
+    disFlipped=true;
     document.getElementById("hub").classList.add("gone");
     document.getElementById("terminal").classList.add("live");
+    document.getElementById("main-panel").classList.add("booting");
+    document.getElementById("side-panel").classList.add("booting");
     doCenterFlash();
-  },1500);
+  }
+  if(p>=1){disActive=false;dCv.style.opacity="0";}
+}
+
+function glitchHubText(p){
+  var div=document.getElementById("hero-text");
+  if(!div)return;
+  if(p<=0.02){div.style.filter="";div.style.opacity="1";div.style.transform="";return;}
+  var intensity=Math.min((p-0.02)/0.38,1);
+  var blurPx=(intensity*intensity*14).toFixed(1);
+  var contrast=(1+intensity*4).toFixed(2);
+  var sat=Math.max(0,1-intensity*1.2).toFixed(2);
+  div.style.filter="blur("+blurPx+"px) contrast("+contrast+") saturate("+sat+")";
+  if(Math.random()<intensity*0.5){
+    var jx=((Math.random()-0.5)*intensity*14).toFixed(1);
+    var jy=((Math.random()-0.5)*intensity*6).toFixed(1);
+    div.style.transform="translate("+jx+"px,"+jy+"px)";
+  } else div.style.transform="";
+  div.style.opacity=String(Math.max(0,1-intensity*1.1).toFixed(2));
+}
+
+// Sample pixels as soon as img loads
+var hubImg=document.getElementById("hub-img");
+function onImgLoad(){
+  initCanvas();
+  sampleImagePixels();
+}
+if(hubImg.complete&&hubImg.naturalWidth>0){
+  onImgLoad();
+} else {
+  hubImg.addEventListener('load',onImgLoad);
+}
+// fallback if img never loads
+setTimeout(function(){if(!imgData)initCanvas();},3000);
+
+document.getElementById("enter-btn").addEventListener("click",function(e){
+  if(disActive)return;
+  var rect=e.currentTarget.getBoundingClientRect();
+  disOx=(rect.left+rect.width/2)/window.innerWidth;
+  disOy=(rect.top+rect.height/2)/window.innerHeight;
+  disActive=true;disFlipped=false;disProgress=0;
+  if(!dCv)initCanvas();
+  if(!imgData)sampleImagePixels();
+  dCv.style.opacity="1";
+  samplePixels();
+  drawDis();
+  // safety net
+  setTimeout(function(){
+    if(!disFlipped){
+      disFlipped=true;
+      document.getElementById("hub").classList.add("gone");
+      document.getElementById("terminal").classList.add("live");
+      document.getElementById("main-panel").classList.add("booting");
+      document.getElementById("side-panel").classList.add("booting");
+      dCv.style.opacity="0";
+      disActive=false;
+      doCenterFlash();
+    }
+  },5000);
 });
 
 // BOOT OVERLAY
@@ -445,10 +644,12 @@ document.getElementById("tour-close").addEventListener("click",function(){docume
 document.getElementById("hub-return").addEventListener("click",function(){
   document.getElementById("terminal").classList.remove("live");
   document.getElementById("hub").classList.remove("gone");
-  document.getElementById("hub").classList.remove("glitching");
   document.getElementById("main-panel").classList.add("booting");
   document.getElementById("side-panel").classList.add("booting");
   glitchActive=false;
+  disActive=false;disProgress=0;disFlipped=false;
+  if(dCv)dCv.style.opacity="0";
+  var div=document.getElementById("hero-text");if(div){div.style.filter="";div.style.opacity="1";div.style.transform="";}
 });
 
 // SCROLL
