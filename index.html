@@ -106,7 +106,7 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:default;user-select:none
   <canvas id="hub-text-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;opacity:0;"></canvas>
   <div class="hero-text" id="hero-text-div" style="transition:filter .1s,opacity .1s;">
     <div class="hero-album">I Took Another Bite from an Apple Cause I Woke Up Starving<br>New Album -- Fall 2026</div>
-    <button id="enter-btn">Enter the Dream Terminal</button>
+    <button id="enter-btn" style="opacity:1;pointer-events:all;cursor:pointer;color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.25);">Enter the Dream Terminal</button>
   </div>
   <nav id="hub-nav">
     <div class="nav-links">
@@ -299,6 +299,25 @@ var PIXELS=[];
 function resizeD(){dCv.width=window.innerWidth;dCv.height=window.innerHeight;}
 resizeD();window.addEventListener("resize",resizeD);
 
+function glitchHubText(p){
+  var div=document.getElementById("hero-text-div");
+  if(!div)return;
+  if(p<=0.01){div.style.filter="";div.style.opacity="1";div.style.transform="";return;}
+  var intensity=Math.min((p-0.01)/0.35,1);
+  var blurPx=(intensity*intensity*14).toFixed(1);
+  var contrast=(1+intensity*4).toFixed(2);
+  var saturate=Math.max(0,1-intensity*1.2).toFixed(2);
+  div.style.filter="blur("+blurPx+"px) contrast("+contrast+") saturate("+saturate+")";
+  if(Math.random()<intensity*0.6){
+    var jx=((Math.random()-0.5)*intensity*12).toFixed(1);
+    var jy=((Math.random()-0.5)*intensity*6).toFixed(1);
+    div.style.transform="translate("+jx+"px,"+jy+"px)";
+  } else {
+    div.style.transform="";
+  }
+  div.style.opacity=String(Math.max(0,1-intensity*1.1).toFixed(2));
+}
+
 function samplePixels(){
   PIXELS=[];
   var W=dCv.width,H=dCv.height,cx=disOx*W,cy=disOy*H,BS=16;
@@ -323,6 +342,17 @@ function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
   disProgress=Math.min(disProgress+0.011,1);
+  if(disProgress>=1&&!disFlipped){
+    disFlipped=true;
+    document.getElementById("hub").classList.add("gone");
+    document.getElementById("terminal").classList.add("live");
+    document.getElementById("main-panel").classList.add("booting");
+    document.getElementById("side-panel").classList.add("booting");
+    dCv.style.opacity="0";
+    disActive=false;
+    doCenterFlash();
+    return;
+  }
   var W=dCv.width,H=dCv.height,p=disProgress;
   var cx=disOx*W,cy=disOy*H;
   var e=p<0.5?2*p*p:-1+(4-2*p)*p;
@@ -407,12 +437,27 @@ function drawDis(){
 }
 
 document.getElementById("enter-btn").addEventListener("click",function(e){
+  if(disActive)return;
   var rect=e.target.getBoundingClientRect();
   disOx=(rect.left+rect.width/2)/window.innerWidth;
   disOy=(rect.top+rect.height/2)/window.innerHeight;
   disActive=true;disFlipped=false;disProgress=0;
   dCv.style.opacity="1";
-  samplePixels();drawDis();
+  samplePixels();
+  drawDis();
+  // safety net -- if animation stalls, force through after 4s
+  setTimeout(function(){
+    if(!disFlipped){
+      disFlipped=true;
+      document.getElementById("hub").classList.add("gone");
+      document.getElementById("terminal").classList.add("live");
+      document.getElementById("main-panel").classList.add("booting");
+      document.getElementById("side-panel").classList.add("booting");
+      dCv.style.opacity="0";
+      disActive=false;
+      doCenterFlash();
+    }
+  },4000);
 });
 
 var BOOT=[
@@ -463,6 +508,8 @@ function startBootOv(){
     ov.className="off";
     setTimeout(function(){
       lel.innerHTML="";ov.className="";
+      document.getElementById("main-panel").classList.remove("booting");
+      document.getElementById("side-panel").classList.remove("booting");
       showRoot();
     },600);
   },1000);
@@ -511,8 +558,10 @@ function miniBootThen(type,label,cb){stopHG();var ov=document.getElementById("mi
 function revealAll(){var els=si.querySelectorAll(".t:not(.sp):not(.rule)"),delay=0;els.forEach(function(el){var fin=el.dataset.final;if(!fin)return;el.textContent=fin.replace(/[^ ]/g,function(){return rc();});var dur=200+Math.random()*180;(function(e,f,d){setTimeout(function(){glitchReveal(e,f,d);},delay);})(el,fin,dur);delay+=26+Math.random()*16;});}
 var playEl=null;
 function showRoot(){
-  document.getElementById("main-panel").classList.remove("booting");
-  document.getElementById("side-panel").classList.remove("booting");
+  var mp=document.getElementById("main-panel");
+  var sp=document.getElementById("side-panel");
+  if(mp)mp.classList.remove("booting");
+  if(sp)sp.classList.remove("booting");
   wipe();document.getElementById("hdr-path").textContent="Root";document.getElementById("ftr-path").textContent="~/root";document.getElementById("ph-label").textContent="Discography";document.getElementById("ph-right").textContent="3 Albums / 14 Songs / 67 Files";setLoc(null,null,null);log("cd /root");mkSp(1);mkT("Eternal Return","hi");mkSp(2);mkRl();mkT("Songs / Stems / Versions / Drafts","dd");mkT("A Complete Record of the Work","dd");mkRl();mkSp(2);mkT("Discography","d");mkSp(1);ALBUMS.forEach(function(a,i){(function(album,idx){mkT(String(idx+1).padStart(2,"0")+".  "+album.label+"  "+album.year+"  ["+album.type+"]  "+album.songs.length+" Songs","",function(){miniBootThen("album",album.label,function(){openAlbum(album);});});})(a,i);});mkSp(3);mkRl();mkT("Access: Private / Do Not Distribute","dd");mkSp(8);setTimeout(function(){recalc();revealAll();},30);}
 function openAlbum(album){wipe();document.getElementById("hdr-path").textContent=album.label;document.getElementById("ftr-path").textContent="~/"+album.label;document.getElementById("ph-label").textContent=album.label;document.getElementById("ph-right").textContent=album.year+" / "+album.type;setLoc(album.label,null,null);log("open "+album.label);mkSp(1);mkT(album.label,"hi");mkT(album.year+"  "+album.type,"d");mkSp(2);album.desc.forEach(function(d){mkT(d,"d");});mkSp(2);mkRl();mkT("Tracklist ["+album.songs.length+"]","d");mkRl();mkSp(1);album.songs.forEach(function(s,idx){(function(song,i){var row=mkT(String(i+1).padStart(2,"0")+".  "+song.label+"  ["+song.versions.length+"v / "+song.stems.length+"s]","",function(){toggleSong(song,album,row,xEl);});var xEl=document.createElement("div");xEl.dataset.open="0";si.appendChild(xEl);})(s,idx);});mkSp(3);mkRl();mkT("../ Back to Discography","d",function(){miniBootThen("root","",function(){showRoot();});});mkSp(8);setTimeout(function(){recalc();revealAll();},30);}
 function toggleSong(song,album,row,xEl){if(xEl.dataset.open==="1"){xEl.innerHTML="";xEl.dataset.open="0";row.classList.remove("on");setLoc(album.label,null,null);log("close "+song.label);recalc();return;}document.querySelectorAll("[data-open='1']").forEach(function(el){el.innerHTML="";el.dataset.open="0";});document.querySelectorAll(".t.cl.on").forEach(function(el){el.classList.remove("on");});row.classList.add("on");xEl.dataset.open="1";setLoc(album.label,song.label,null);log("expand "+song.label);function iT(text,cls,onClick){var el=document.createElement("span");el.className="t "+(cls||"");el.dataset.final=text;el.textContent=text;if(onClick){el.classList.add("cl");var a=document.createElement("span");a.className="arr";a.textContent=" >";el.appendChild(a);el.addEventListener("click",function(e){e.stopPropagation();onClick(el);});}xEl.appendChild(el);return el;}function iSp(){var e=document.createElement("span");e.className="t sp";xEl.appendChild(e);}function iRl(){var e=document.createElement("span");e.className="t rule";e.textContent="-".repeat(80);xEl.appendChild(e);}iSp();iRl();iT("  Versions ["+song.versions.length+"]","d");iRl();iSp();song.versions.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();iRl();iT("  Stems ["+song.stems.length+"]","d");iRl();iSp();song.stems.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();var els=xEl.querySelectorAll(".t:not(.sp):not(.rule)"),delay=0;els.forEach(function(el){var fin=el.dataset.final;if(!fin)return;el.textContent=fin.replace(/[^ ]/g,function(){return rc();});(function(e,f){setTimeout(function(){glitchReveal(e,f,160);},delay);})(el,fin);delay+=20;});setTimeout(recalc,50);}
