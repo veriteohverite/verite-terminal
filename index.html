@@ -411,13 +411,13 @@ function samplePixels(){
 function drawDis(){
   if(!disActive)return;
   requestAnimationFrame(drawDis);
-  disProgress=Math.min(disProgress+0.008,1);
+  disProgress=Math.min(disProgress+0.007,1);
   var p=disProgress,W=dCv.width,H=dCv.height;
+  var cx=disOx*W, cy=disOy*H;
 
   dCtx.clearRect(0,0,W,H);
 
   if(!imgData){
-    // no image data -- just fade to black
     dCtx.fillStyle='rgba(0,0,0,'+p+')';
     dCtx.fillRect(0,0,W,H);
     glitchHubText(p);
@@ -426,99 +426,145 @@ function drawDis(){
     return;
   }
 
-  // Datamosh: redraw image pixel-by-pixel in small blocks
-  // Each block reads from a DISPLACED position in imgData
-  // Displacement grows over time -- image samples wrong regions of itself
-  var BS=4; // 4px blocks -- tiny and sharp
-  var frame=Math.floor(p*60); // fake frame counter
+  // Phase transitions
+  // 0.00-0.12: image visible, canvas fades IN over it (smooth blend)
+  // 0.12-0.45: mild datamosh begins, glitches intensify
+  // 0.45-0.75: heavy corruption, rows freezing, chaos
+  // 0.75-0.88: pixels start dissolving inward toward cx,cy
+  // 0.88-1.00: flash and collapse to black
 
-  // How much displacement we apply -- ramps up hard
-  var dispAmt = p<0.2 ? 0 : Math.pow((p-0.2)/0.8, 2) * W * 0.6;
-  // How many blocks get displaced vs staying correct
-  var corruptChance = p<0.15 ? 0 : Math.min((p-0.15)/0.4, 1);
-  // Block freeze: some blocks "stuck" reading from an earlier moment
-  var freezeAmt = p<0.3 ? 0 : Math.min((p-0.3)/0.4, 1);
+  var fadeIn = Math.min(p/0.1, 1); // canvas opacity ramps 0->1 over first 10%
+  dCv.style.opacity = fadeIn.toFixed(3);
 
-  for(var r=0;r<H;r+=BS){
-    for(var c=0;c<W;c+=BS){
+  var corruptChance = p<0.1 ? 0 : Math.min((p-0.1)/0.5, 1);
+  var dispAmt = p<0.1 ? 0 : Math.pow((p-0.1)/0.9, 1.8) * W * 0.55;
+  var freezeAmt = p<0.35 ? 0 : Math.min((p-0.35)/0.4, 1);
+
+  // Glitch frame -- changes rapidly to make it feel alive
+  var gf = Math.floor(p * 120); // fast frame counter
+  var gf2 = Math.floor(p * 45);
+
+  // dissolve phase
+  var dissolveStart = 0.72;
+  var dissolving = p > dissolveStart;
+  var dissolveP = dissolving ? (p-dissolveStart)/(1-dissolveStart) : 0;
+
+  var r=0;
+  while(r < H){
+    // Vary row height: mostly 4px, occasionally 2 or 6
+    var rowH = 4;
+    var rowRand = Math.sin(r*17.3+gf*3.7);
+    if(rowRand > 0.7) rowH = 2;
+    else if(rowRand < -0.7) rowH = 6;
+
+    var c=0;
+    while(c < W){
+      // Vary col width similarly
+      var colW = rowH; // keep roughly square
+      var colRand = Math.sin(c*13.1+r*7.9+gf*2.3);
+      if(colRand > 0.75) colW = 2;
+      else if(colRand < -0.65) colW = 6;
+
       var sx=c, sy=r;
+      var skip=false;
 
-      if(Math.random()<corruptChance){
-        // datamosh displacement -- sample from wrong position
-        // horizontal smear dominates (like video codec error)
-        var rowNoise = Math.sin(r*0.08 + frame*0.7)*0.5+0.5;
-        var blockNoise = Math.sin(c*0.05 + r*0.03 + frame*1.1)*0.5+0.5;
+      if(dissolving){
+        // Pixels get sucked toward cx,cy
+        // Each pixel has a delay based on distance from center
+        var dx=c-cx, dy=r-cy;
+        var dist=Math.sqrt(dx*dx+dy*dy);
+        var maxDist=Math.sqrt(cx*cx+cy*cy)*1.4;
+        var pixelDelay = (dist/maxDist)*0.5; // far pixels start dissolving later
+        var lp = Math.max(0,(dissolveP-pixelDelay)/(1-pixelDelay));
+        var le = lp*lp*lp; // cubic -- slow then fast
 
-        // Some rows get big horizontal displacement (like a stuck frame)
-        var rowGroup = Math.floor(r / (BS * (3+Math.floor(rowNoise*8))));
-        var rowFrozen = Math.sin(rowGroup*13.7 + Math.floor(p*8))*0.5+0.5 > (1-freezeAmt*0.7);
-
-        if(rowFrozen){
-          // this row reads from a completely different horizontal position
-          sx = c + (rowNoise-0.5)*dispAmt*1.4;
-          sy = r + (blockNoise-0.5)*dispAmt*0.08;
+        if(le>0){
+          // move toward center
+          sx = Math.round(c + (cx-c)*le*0.85);
+          sy = Math.round(r + (cy-r)*le*0.85);
+          // shrink and fade -- skip drawing if fully dissolved
+          if(le>0.92) { c+=colW; continue; }
+          // also corrupt displacement as dissolving
+          sx += Math.round((Math.random()-0.5)*le*20);
+          sy += Math.round((Math.random()-0.5)*le*8);
         } else {
-          // normal corruption -- smaller random displacement
-          sx = c + (blockNoise-0.5)*dispAmt*0.35;
-          sy = r + (Math.random()-0.5)*dispAmt*0.04;
+          // not yet dissolving -- still datamosh
+          if(Math.random()<corruptChance){
+            var rn=Math.sin(r*0.09+gf*0.8)*0.5+0.5;
+            var bn=Math.sin(c*0.06+r*0.04+gf*1.3)*0.5+0.5;
+            var rg=Math.floor(r/(rowH*(3+Math.floor(rn*6))));
+            var frozen=Math.sin(rg*13.7+gf2)*0.5+0.5 > (1-freezeAmt*0.75);
+            sx = Math.round(c + (frozen?(rn-0.5)*dispAmt*1.3:(bn-0.5)*dispAmt*0.3));
+            sy = Math.round(r + (frozen?(bn-0.5)*dispAmt*0.06:(Math.random()-0.5)*dispAmt*0.03));
+          }
         }
+      } else if(Math.random()<corruptChance){
+        var rn2=Math.sin(r*0.09+gf*0.8)*0.5+0.5;
+        var bn2=Math.sin(c*0.06+r*0.04+gf*1.3)*0.5+0.5;
+        var rg2=Math.floor(r/(rowH*(3+Math.floor(rn2*6))));
+        var frozen2=Math.sin(rg2*13.7+gf2)*0.5+0.5 > (1-freezeAmt*0.75);
+        sx = Math.round(c + (frozen2?(rn2-0.5)*dispAmt*1.3:(bn2-0.5)*dispAmt*0.3));
+        sy = Math.round(r + (frozen2?(bn2-0.5)*dispAmt*0.06:(Math.random()-0.5)*dispAmt*0.03));
       }
 
-      // clamp to image bounds
-      sx = Math.max(0,Math.min(W-1,Math.round(sx)));
-      sy = Math.max(0,Math.min(H-1,Math.round(sy)));
+      // clamp
+      sx=Math.max(0,Math.min(W-1,sx));
+      sy=Math.max(0,Math.min(H-1,sy));
+      var pi2=(sy*W+sx)*4;
+      var pr=imgData.data[pi2];
+      var pg=imgData.data[pi2+1];
+      var pb=imgData.data[pi2+2];
 
-      // read pixel from imgData at displaced position
-      var pi=(sy*W+sx)*4;
-      var pr=imgData.data[pi];
-      var pg=imgData.data[pi+1];
-      var pb=imgData.data[pi+2];
-
-      // late stage: desaturate and darken
-      if(p>0.55){
-        var dk=(p-0.55)/0.45;
+      // darken as dissolving
+      if(dissolving&&dissolveP>0.3){
+        var dk=(dissolveP-0.3)/0.7;
         var gray=0.299*pr+0.587*pg+0.114*pb;
-        pr=Math.round(pr+(gray-pr)*dk*0.8);
-        pg=Math.round(pg+(gray-pg)*dk*0.8);
-        pb=Math.round(pb+(gray-pb)*dk*0.8);
-        var bright=1-dk*0.95;
+        pr=Math.round(pr+(gray-pr)*dk*0.7);
+        pg=Math.round(pg+(gray-pg)*dk*0.7);
+        pb=Math.round(pb+(gray-pb)*dk*0.7);
+        var bright=1-dk*0.9;
         pr=Math.round(pr*bright);pg=Math.round(pg*bright);pb=Math.round(pb*bright);
       }
 
       dCtx.fillStyle='rgb('+pr+','+pg+','+pb+')';
-      dCtx.fillRect(c,r,BS,BS);
+      dCtx.fillRect(c,r,colW,rowH);
+      c+=colW;
     }
+    r+=rowH;
   }
 
-  // Thin horizontal glitch lines -- pure datamosh artifact
-  // Random rows that read from totally wrong y position
-  if(p>0.25){
-    var lineCount=Math.round(Math.pow((p-0.25)/0.75,2)*20);
+  // Random full glitch lines -- snap to wrong row, change every few frames
+  if(p>0.2&&!dissolving){
+    var lineCount=Math.round(Math.pow((p-0.2)/0.55,2)*25);
     for(var l=0;l<lineCount;l++){
-      var ly=Math.floor(Math.random()*H/BS)*BS;
-      var fromY=Math.floor(Math.random()*H/BS)*BS;
-      fromY=Math.max(0,Math.min(H-1,fromY));
-      for(var lc=0;lc<W;lc+=BS){
+      // use gf to make lines flicker -- different each frame
+      var seed=Math.sin(l*7.3+gf*2.1)*0.5+0.5;
+      var ly=Math.floor(seed*H/4)*4;
+      var fromY=Math.floor(Math.sin(l*3.7+gf*1.7)*0.5*H+H/2);
+      fromY=Math.max(0,Math.min(H-4,fromY));
+      // line width varies
+      var lw=Math.floor((Math.sin(l*5.1+gf*0.9)*0.5+0.5)*12+4)*4;
+      for(var lc=0;lc<W;lc+=4){
         var lpi=(fromY*W+lc)*4;
         dCtx.fillStyle='rgb('+imgData.data[lpi]+','+imgData.data[lpi+1]+','+imgData.data[lpi+2]+')';
-        dCtx.fillRect(lc,ly,BS,BS);
+        dCtx.fillRect(lc,ly,4,lw);
       }
     }
   }
 
-  // Final flash to white then black
-  if(p>0.82){
-    var ep=(p-0.82)/0.18;
-    var flashPeak=ep<0.4?ep/0.4:1-(ep-0.4)/0.6;
-    dCtx.fillStyle='rgba(255,252,248,'+( flashPeak*0.9).toFixed(2)+')';
+  // Final flash to white then collapse
+  if(p>0.85){
+    var ep=(p-0.85)/0.15;
+    var flashPeak=ep<0.35?ep/0.35:1-(ep-0.35)/0.65;
+    dCtx.fillStyle='rgba(255,252,248,'+(flashPeak*0.85).toFixed(2)+')';
     dCtx.fillRect(0,0,W,H);
-    dCtx.fillStyle='rgba(0,0,0,'+(Math.max(0,ep-0.35)/0.65).toFixed(2)+')';
+    dCtx.fillStyle='rgba(0,0,0,'+(Math.max(0,ep-0.3)/0.7).toFixed(2)+')';
     dCtx.fillRect(0,0,W,H);
   }
 
   glitchHubText(p);
 
-  if(!disFlipped&&p>=0.88){flip();}
+  if(!disFlipped&&p>=0.9){flip();}
   if(p>=1){disActive=false;dCv.style.opacity="0";}
 }
 
