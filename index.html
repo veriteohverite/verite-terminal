@@ -44,7 +44,20 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 #terminal.live{opacity:1;pointer-events:all;cursor:none;}
 #terminal *{cursor:none!important;}
 #terminal:after{content:'';position:absolute;inset:0;z-index:9000;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 3px);}
-#app{position:absolute;inset:0;background:var(--tbg);display:grid;grid-template-rows:36px 1fr 36px;grid-template-columns:1fr 300px;}
+#app{position:absolute;inset:0;background:var(--tbg);display:grid;grid-template-rows:36px 1fr 36px;grid-template-columns:1fr 240px;}
+/* constrain entire terminal to a max-width on large screens */
+@media(min-width:1200px){
+  #terminal>#app{
+    max-width:1100px;
+    margin:0 auto;
+    left:50%;
+    transform:translateX(-50%);
+    position:absolute;
+    width:100%;
+    border-left:1px solid var(--tbdr);
+    border-right:1px solid var(--tbdr);
+  }
+}
 /* ── STRUCTURE GLOW + FLICKER ─────────────────────────────────────── */
 @keyframes borderFlicker{
   0%,100%{opacity:1;}
@@ -180,20 +193,21 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
     border-right:none;
   }
 
-  /* header — slim down, show only essentials */
-  #hdr{padding:0 1.2rem;gap:1rem;}
-  .hdr-title{font-size:.75rem;letter-spacing:.18em;}
+  /* header — single line, never wraps */
+  #hdr{padding:0 1rem;gap:.6rem;flex-wrap:nowrap;overflow:hidden;}
+  .hdr-title{font-size:.62rem;letter-spacing:.12em;white-space:nowrap;flex-shrink:0;}
   #hdr-clock{display:none;}
-  .hdr-nav-links{gap:1rem;}
-  .hdr-nav-link{font-size:.58rem;letter-spacing:.12em;}
-  #hub-return{font-size:.58rem;letter-spacing:.12em;}
+  .hdr-nav-links{gap:.7rem;flex-shrink:0;}
+  .hdr-nav-link{font-size:.52rem;letter-spacing:.08em;white-space:nowrap;}
+  #hub-return{font-size:.52rem;letter-spacing:.08em;white-space:nowrap;flex-shrink:0;}
   .hdr-sep{display:none;}
   #hdr-path{display:none;}
-  /* dot+online status hidden on mobile */
   #hdr .hdr-meta:first-child{display:none;}
+  .hdr-right{gap:.6rem;}
 
-  /* panel header */
-  .panel-header{padding:.5rem 1.2rem;}
+  /* panel header — no wrap */
+  .panel-header{padding:.5rem 1.2rem;flex-wrap:nowrap;overflow:hidden;}
+  .panel-header span{white-space:nowrap;font-size:.55rem;overflow:hidden;text-overflow:ellipsis;}
 
   /* scroll content — full width, comfortable padding, larger text */
   #scroll-inner{
