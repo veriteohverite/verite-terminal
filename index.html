@@ -7,7 +7,8 @@
 <title>VERITE -- Dream Terminal</title>
 <style>
 :root{--tbg:#000;--tfg:#ccc8c0;--thi:#eceae4;--tdim:#5a5a52;--tbdr:#222220;--tacc:#908878;}
-*{margin:0;padding:0;box-sizing:border-box;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+#scroll-world{-webkit-overflow-scrolling:touch;}
 html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;font-family:'Courier New',Courier,monospace;background:#000;}
 #hub{position:fixed;inset:0;z-index:100;background:#000;cursor:none;}
 #hub *{cursor:none!important;}
@@ -99,7 +100,7 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 #main-panel{border-right:1px solid var(--tbdr);overflow:hidden;display:flex;flex-direction:column;background:var(--tbg);}
 #scroll-world{flex:1;overflow-y:auto;position:relative;scrollbar-width:none;}#scroll-world::-webkit-scrollbar{display:none;}
-#scroll-inner{padding:8vh 2.8rem 30vh;max-width:680px;margin:0 auto;}
+#scroll-inner{padding:8vh 2.2rem 30vh;max-width:680px;margin:0;}
 .t{display:block;font-family:'Courier New',Courier,monospace;font-size:clamp(11px,1.45vw,17px);line-height:1.2;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;color:var(--tfg);padding:0.2em 0;text-shadow:0 0 6px rgba(236,234,228,0.5),0 0 14px rgba(236,234,228,0.22),0 0 30px rgba(236,234,228,0.08);}
 .t.hi{color:var(--thi);font-weight:bold;text-shadow:0 0 4px rgba(255,253,248,0.9),0 0 12px rgba(236,234,228,0.6),0 0 28px rgba(236,234,228,0.3),0 0 55px rgba(236,234,228,0.12);}
 .t.d{color:var(--tdim);text-shadow:0 0 6px rgba(90,90,82,0.4),0 0 14px rgba(90,90,82,0.15);}
@@ -154,6 +155,88 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 #side-panel.booting .ss-body{opacity:0;}
 #side-panel.booting #side-log-inner{opacity:0;}
 
+/* ── MOBILE ──────────────────────────────────────────────────────── */
+@media(max-width:768px){
+  /* kill thought bubbles and cursor canvas on mobile */
+  #thought-overlay{display:none!important;}
+  #ghost-cursor-cv{display:none!important;}
+  #cursor-glitch-overlay{display:none!important;}
+  #hub-text-canvas{display:none!important;}
+
+  /* hub landing — keep clean, just scale enter btn */
+  #hub-nav{padding:1.2rem 1.4rem;}
+  .nav-links{gap:1.4rem;}
+  .nav-link{font-size:10px;}
+  #enter-btn{font-size:10px;padding:.85em 2em;}
+
+  /* terminal: single full-width column, no side panel */
+  #app{
+    grid-template-rows:44px 1fr 52px;
+    grid-template-columns:1fr;
+  }
+  #side-panel{display:none;}
+  #main-panel{
+    grid-column:1/-1;
+    border-right:none;
+  }
+
+  /* header — slim down, show only essentials */
+  #hdr{padding:0 1.2rem;gap:1rem;}
+  .hdr-title{font-size:.75rem;letter-spacing:.18em;}
+  #hdr-clock{display:none;}
+  .hdr-nav-links{gap:1rem;}
+  .hdr-nav-link{font-size:.58rem;letter-spacing:.12em;}
+  #hub-return{font-size:.58rem;letter-spacing:.12em;}
+  .hdr-sep{display:none;}
+  #hdr-path{display:none;}
+  /* dot+online status hidden on mobile */
+  #hdr .hdr-meta:first-child{display:none;}
+
+  /* panel header */
+  .panel-header{padding:.5rem 1.2rem;}
+
+  /* scroll content — full width, comfortable padding, larger text */
+  #scroll-inner{
+    padding:6vw 6vw 30vw;
+    max-width:100%;
+    margin:0;
+  }
+  .t{
+    font-size:clamp(13px,3.8vw,18px);
+    white-space:normal;
+    word-break:break-word;
+    padding:0.35em 0;
+  }
+
+  /* bigger tap targets for clickable rows */
+  .t.cl{
+    padding:0.6em 0;
+    border-bottom:1px solid rgba(255,255,255,0.04);
+  }
+  .t.cl:last-child{border-bottom:none;}
+
+  /* footer — now-playing bar, make it readable */
+  #ftr{
+    padding:0 1.2rem;
+    gap:.8rem;
+    font-size:.62rem;
+    height:52px;
+    flex-wrap:nowrap;
+  }
+  #ftr-np{font-size:.6rem;}
+  #np-stop{font-size:.6rem;padding:.3em .7em;}
+  .ftr-sep{display:none;}
+  #t-clock{display:none;}
+
+  /* mini boot — readable on small screen */
+  #mini-boot{padding:6vw 7vw;}
+  #mini-boot-lines{font-size:clamp(12px,3.5vw,16px);}
+
+  /* boot overlay */
+  #boot-ov{padding:6vw 7vw;}
+  #boot-ov-lines{font-size:clamp(11px,3.2vw,15px);}
+}
+/* ── END MOBILE ──────────────────────────────────────────────────── */
 
 </style>
 </head>
