@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VERITE -- Dream Terminal</title>
 <style>
-:root{--tbg:#000;--tfg:#ccc8c0;--thi:#eceae4;--tdim:#5a5a52;--tbdr:#222220;--tacc:#908878;}
+:root{--tbg:#000;--tfg:#a8a49c;--thi:#c8c4bc;--tdim:#484840;--tbdr:#1c1c1a;--tacc:#787060;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 #scroll-world{-webkit-overflow-scrolling:touch;}
 html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;font-family:'Courier New',Courier,monospace;background:#000;}
@@ -39,7 +39,7 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 #boot-ov.off{opacity:0;transition:opacity 1.2s;}
 #boot-ov-lines{font-family:'Courier New',monospace;font-size:clamp(11px,1.45vw,16px);line-height:1.65;letter-spacing:.05em;text-transform:uppercase;color:var(--tfg);}
 #boot-ov-lines .bl{display:block;opacity:0;transition:opacity .08s;}
-#boot-ov-lines .bl.hi{color:var(--thi);font-weight:bold;}
+#boot-ov-lines .bl.hi{color:var(--thi);font-weight:bold;text-shadow:0 0 6px rgba(200,196,188,0.25);}
 #terminal{position:fixed;inset:0;z-index:200;opacity:0;pointer-events:none;}
 #terminal.live{opacity:1;pointer-events:all;cursor:none;}
 #terminal *{cursor:none!important;}
@@ -145,9 +145,9 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 #np-stop:hover{color:var(--thi);text-shadow:0 0 5px rgba(255,253,248,0.85),0 0 14px rgba(236,234,228,0.4);}
 #side-log-inner{padding:.8rem 1.4rem;font-family:'Courier New',monospace;font-size:.6rem;line-height:1.8;letter-spacing:.06em;text-transform:uppercase;color:#383830;text-shadow:0 0 5px rgba(56,56,48,0.6);}
 #mini-boot-lines .mbl.hi{color:var(--thi);font-weight:bold;text-shadow:0 0 5px rgba(255,253,248,0.85),0 0 16px rgba(236,234,228,0.45),0 0 32px rgba(236,234,228,0.18);}
-#mini-boot{position:fixed;inset:0;z-index:7000;background:var(--tbg);display:flex;flex-direction:column;justify-content:center;padding:2.5vw 3vw;opacity:0;pointer-events:none;transition:opacity .15s ease;}
+#mini-boot{position:fixed;inset:0;z-index:7000;background:var(--tbg);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:2.5vw 3vw;opacity:0;pointer-events:none;transition:opacity .15s ease;}
 #mini-boot.on{opacity:1;pointer-events:all;}
-#mini-boot-lines{font-family:'Courier New',monospace;font-size:clamp(11px,1.4vw,16px);line-height:1.7;letter-spacing:.06em;text-transform:uppercase;color:var(--tdim);}
+#mini-boot-lines{font-family:'Courier New',monospace;font-size:clamp(11px,1.4vw,16px);line-height:1.7;letter-spacing:.06em;text-transform:uppercase;color:var(--tdim);text-align:center;}
 #mini-boot-lines .mbl{display:block;opacity:0;}
 #mini-boot-lines .mbl.hi{color:var(--thi);font-weight:bold;}
 #side-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--tbg);}
@@ -456,11 +456,11 @@ function drawHeroImage(warpAmt){
     return;
   }
 
-  // Warp/disintegration: slice-based draw (redraws over base)
+  // Warp/disintegration: fine slice-based draw
   heroCtx.clearRect(0,0,W,H);
-  var sliceH=Math.max(1,Math.floor(2+warpAmt*6));
+  var sliceH=Math.max(1,Math.floor(1+warpAmt*3)); // finer slices: max ~4px
   for(var y=0;y<H;y+=sliceH){
-    var drift=Math.random()<warpAmt*0.85?(Math.random()-0.5)*warpAmt*80:0;
+    var drift=Math.random()<warpAmt*0.6?(Math.random()-0.5)*warpAmt*28:0; // tighter drift
     var srcY2=sy+(y/H)*sh,srcSH=(sliceH/H)*sh;
     if(drift!==0){
       heroCtx.save();heroCtx.translate(drift,0);
@@ -471,7 +471,7 @@ function drawHeroImage(warpAmt){
     }
   }
   if(warpAmt>0.4){
-    heroCtx.save();heroCtx.globalAlpha=(warpAmt-0.4)*0.9;
+    heroCtx.save();heroCtx.globalAlpha=(warpAmt-0.4)*0.75;
     heroCtx.fillStyle="#000";heroCtx.fillRect(0,0,W,H);heroCtx.restore();
   }
 }
@@ -571,14 +571,17 @@ function initHero(){
   resizeHero();
   resizeCursor();
   document.getElementById("enter-btn").classList.add("ready");
-  document.getElementById("hub").addEventListener("mousemove",function(e){
-    if(disActive)return;
-    glitchMx=e.clientX;glitchMy=e.clientY;
-    glitchActive=true;
-  });
-  document.getElementById("hub").addEventListener("mouseleave",function(){
-    glitchActive=false;
-  });
+  // glitch trail — desktop only, skip on touch devices
+  if(!('ontouchstart' in window)){
+    document.getElementById("hub").addEventListener("mousemove",function(e){
+      if(disActive)return;
+      glitchMx=e.clientX;glitchMy=e.clientY;
+      glitchActive=true;
+    });
+    document.getElementById("hub").addEventListener("mouseleave",function(){
+      glitchActive=false;
+    });
+  }
   glitchLoop();
 }
 window.addEventListener("resize",resizeHero);
@@ -648,14 +651,14 @@ function glitchHubText(p){
   if(p<=0.05){div.style.filter="";div.style.opacity="1";return;}
   var intensity=Math.min((p-0.05)/0.5,1);
   // pixelation: blur + contrast pumped way up = blocky pixel look
-  var blurPx=(intensity*intensity*14).toFixed(1);
-  var contrast=(1+intensity*4).toFixed(2);
+  var blurPx=(intensity*intensity*6).toFixed(1);
+  var contrast=(1+intensity*2.2).toFixed(2);
   var saturate=Math.max(0,1-intensity*1.2).toFixed(2);
   div.style.filter="blur("+blurPx+"px) contrast("+contrast+") saturate("+saturate+")";
-  // also randomly jitter position for glitch feel
-  if(Math.random()<intensity*0.6){
-    var jx=((Math.random()-0.5)*intensity*12).toFixed(1);
-    var jy=((Math.random()-0.5)*intensity*6).toFixed(1);
+  // fine jitter — tighter displacement
+  if(Math.random()<intensity*0.45){
+    var jx=((Math.random()-0.5)*intensity*5).toFixed(1);
+    var jy=((Math.random()-0.5)*intensity*2.5).toFixed(1);
     div.style.transform="translate("+jx+"px,"+jy+"px)";
   } else {
     div.style.transform="";
@@ -841,17 +844,112 @@ function startBootOv(){
 document.getElementById("tour-btn").addEventListener("click",function(){document.getElementById("tour-panel").classList.toggle("open");});
 document.getElementById("tour-close").addEventListener("click",function(){document.getElementById("tour-panel").classList.remove("open");});
 document.getElementById("hub-return").addEventListener("click",function(){
-  document.getElementById("terminal").classList.remove("live");
-  document.getElementById("hub").classList.remove("gone");
-  document.getElementById("main-panel").classList.add("booting");
-  document.getElementById("side-panel").classList.add("booting");
-  var div=document.getElementById("hero-text-div");
-  if(div){div.style.filter="";div.style.opacity="1";div.style.transform="";}
-  if(heroLoaded)drawHeroImage(0);
-  // Hide thought-overlay when returning to Layer 1
-  var _ov=document.getElementById("thought-overlay");
-  if(_ov)_ov.style.opacity="0";
+  // ── immediately kill all Layer 2 images/animations ──
   window.bubblesEnabled=false;
+  var _ov=document.getElementById("thought-overlay");
+  if(_ov){_ov.style.opacity="0";}
+  // kill every active bubble: stop its raf, mark dead, remove from DOM
+  (window._activeBubbles||[]).forEach(function(w){
+    w._dead=true;
+    if(w._raf){cancelAnimationFrame(w._raf);w._raf=null;}
+    if(w.parentNode){w.parentNode.removeChild(w);}
+  });
+  window._activeBubbles=[];
+  // also nuke anything the querySelectorAll catches
+  document.querySelectorAll(".thought-bubble").forEach(function(b){
+    if(b.parentNode)b.parentNode.removeChild(b);
+  });
+
+  // ── glitch-exit sequence ──
+  // Phase 1: subtle scanline flicker (~600ms, 24 frames)
+  // Phase 2: smooth opacity fade out of terminal (300ms)
+  // Phase 3: hub appears clean
+  var term=document.getElementById("terminal");
+  var cv=document.getElementById("dis-canvas");
+  cv.width=window.innerWidth;cv.height=window.innerHeight;
+  cv.style.zIndex="9998";cv.style.opacity="1";
+  var ctx=cv.getContext("2d");
+
+  var EG_FRAMES=0, EG_TOTAL=22;
+  var EG_START=performance.now();
+  var EG_DUR=700; // total glitch phase ms
+
+  var runExitGlitch=function(ts){
+    EG_FRAMES++;
+    var p=Math.min((ts-EG_START)/EG_DUR,1); // 0→1 over 700ms
+
+    // terminal: very subtle flicker early, steadily fading
+    var baseOpacity=1-p*0.35; // barely dims during glitch
+    var flicker=(EG_FRAMES%5===0)?0.82:1.0; // rare, gentle dip
+    term.style.opacity=String(baseOpacity*flicker);
+
+    // scanlines: thin, sparse, low alpha — feathered
+    ctx.clearRect(0,0,cv.width,cv.height);
+    var intensity=Math.sin(p*Math.PI); // peaks mid-transition, zero at start/end
+    var slices=Math.floor(2+intensity*4); // max ~6 lines
+    for(var s=0;s<slices;s++){
+      var y=Math.random()*cv.height;
+      var h=1+Math.random()*4; // thin: 1-5px
+      var shift=(Math.random()-0.5)*18; // barely shifts
+      var alpha=intensity*(0.02+Math.random()*0.06); // very faint
+      ctx.fillStyle="rgba(236,234,228,"+alpha.toFixed(3)+")";
+      ctx.fillRect(shift,y,cv.width,h);
+    }
+
+    if(p<1){
+      requestAnimationFrame(runExitGlitch);
+    } else {
+      // glitch done — smooth fade out terminal, then reveal hub
+      ctx.clearRect(0,0,cv.width,cv.height);
+      cv.style.zIndex="";cv.style.opacity="";
+      term.style.transition="opacity 0.28s ease-out";
+      term.style.opacity="0";
+      setTimeout(function(){
+        term.style.transition="";
+        term.style.opacity="";
+        term.classList.remove("live");
+        document.getElementById("hub").classList.remove("gone");
+        document.getElementById("main-panel").classList.add("booting");
+        document.getElementById("side-panel").classList.add("booting");
+        var div=document.getElementById("hero-text-div");
+        if(div){div.style.filter="";div.style.opacity="1";div.style.transform="";}
+        if(heroLoaded)drawHeroImage(0);
+        // ── glitch bloom on hero image as hub snaps back in ──
+        (function(){
+          var hcv=document.getElementById("hero-canvas");
+          var hctx=hcv.getContext("2d");
+          var hStart=performance.now(), hDur=520;
+          function heroGlitch(ts){
+            var p=Math.min((ts-hStart)/hDur,1);
+            var intensity=Math.pow(1-p,1.8); // strong at start, decays fast
+            // redraw clean base
+            drawHeroImage(0);
+            // overlay scanline slices on top
+            var slices=Math.floor(intensity*8);
+            for(var s=0;s<slices;s++){
+              var y=Math.random()*hcv.height;
+              var h=1+Math.random()*5;
+              var shift=(Math.random()-0.5)*24;
+              // read a strip and shift it
+              var sw2=Math.floor(hcv.width*0.6+Math.random()*hcv.width*0.4);
+              var sx2=Math.floor(Math.random()*(hcv.width-sw2));
+              try{
+                var id=hctx.getImageData(sx2,Math.floor(y),sw2,Math.ceil(h));
+                hctx.putImageData(id,sx2+shift,y);
+              }catch(e){}
+            }
+            // subtle brightness flash
+            hctx.fillStyle="rgba(236,234,228,"+(intensity*0.08).toFixed(3)+")";
+            hctx.fillRect(0,0,hcv.width,hcv.height);
+            if(p<1) requestAnimationFrame(heroGlitch);
+            else drawHeroImage(0); // settle clean
+          }
+          requestAnimationFrame(heroGlitch);
+        })();
+      },290);
+    }
+  };
+  requestAnimationFrame(runExitGlitch);
 });
 var sw=document.getElementById("scroll-world"),si=document.getElementById("scroll-inner");
 var tY=0,isDrag=false,dragMoved=false,dSY=0,dTY=0;
@@ -972,6 +1070,9 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
 
     var wrap=document.createElement("div");
     wrap._dead=false;
+    wrap._raf=null;
+    window._activeBubbles=window._activeBubbles||[];
+    window._activeBubbles.push(wrap);
     wrap.style.cssText=[
       "position:absolute",
       "width:"+W+"px",
@@ -1013,10 +1114,10 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
       var p=Math.min((ts-startTime)/dur,1);
       var e=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
       wrap.style.top=(startY+(fullEnd-startY)*e)+"px";
-      if(p<1){raf=requestAnimationFrame(tick);}
+      if(p<1){wrap._raf=requestAnimationFrame(tick);}
       else{clearInterval(glitchTimer);if(wrap.parentNode)overlay.removeChild(wrap);}
     }
-    raf=requestAnimationFrame(tick);
+    wrap._raf=requestAnimationFrame(tick);
   }
 
   function preloadAll(srcs,cb){
