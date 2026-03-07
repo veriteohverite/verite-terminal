@@ -132,10 +132,10 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 .t.rule{color:#181816;font-size:.65rem;letter-spacing:0;padding:0;text-shadow:none;}
 .t.cl{cursor:pointer;}
 .t.cl:hover .arr{opacity:1;}
-.t.cl:hover{text-shadow:0 0 4px rgba(255,253,248,0.95),0 0 12px rgba(236,234,228,0.7),0 0 28px rgba(236,234,228,0.4),0 0 55px rgba(236,234,228,0.18);}
+.t.cl:hover,.t.cl.chaos-hover{text-shadow:0 0 4px rgba(255,253,248,0.95),0 0 12px rgba(236,234,228,0.7),0 0 28px rgba(236,234,228,0.4),0 0 55px rgba(236,234,228,0.18);}
 .arr{opacity:0;color:var(--tdim);}
-.t.cl.on{color:var(--thi);font-weight:bold;text-shadow:0 0 4px rgba(255,253,248,0.9),0 0 14px rgba(236,234,228,0.6),0 0 30px rgba(236,234,228,0.3),0 0 55px rgba(236,234,228,0.12);}
-.t.playing{color:var(--tacc);text-shadow:0 0 5px rgba(144,136,120,0.9),0 0 14px rgba(144,136,120,0.55),0 0 30px rgba(144,136,120,0.28),0 0 55px rgba(144,136,120,0.12);}
+.t.cl.on{color:var(--thi);}
+.t.playing{color:var(--thi);text-shadow:0 0 6px rgba(236,234,228,0.95),0 0 18px rgba(236,234,228,0.6),0 0 40px rgba(236,234,228,0.25);}
 .hdr-title{font-size:.85rem;letter-spacing:.25em;color:var(--thi);text-transform:uppercase;text-shadow:none;}
 .hdr-meta{font-size:.65rem;color:var(--tdim);letter-spacing:.12em;text-transform:uppercase;text-shadow:0 0 6px rgba(90,90,82,0.5),0 0 14px rgba(90,90,82,0.2);}
 .ss-head{padding:.5rem 1.4rem;font-size:.6rem;letter-spacing:.22em;color:var(--tdim);text-transform:uppercase;border-bottom:1px solid var(--tbdr);display:flex;justify-content:space-between;text-shadow:0 0 6px rgba(90,90,82,0.5),0 0 14px rgba(90,90,82,0.2);}
@@ -636,7 +636,7 @@ function scheduleCursorGlitch(){
 scheduleCursorGlitch();
 
 function glitchLoop(){
-  if(!heroLoaded||disActive)return requestAnimationFrame(glitchLoop);
+  if(!heroLoaded||disActive||document.getElementById("terminal").classList.contains("live"))return requestAnimationFrame(glitchLoop);
 
   // deposit a new trail point if mouse is active
   if(glitchActive && glitchMx>=0){
@@ -992,9 +992,7 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
     if(!versions.length){ song=album.songs[0]; versions=song.versions||[]; }
     var file=versions[Math.floor(Math.random()*versions.length)];
 
-    // step 1: go to root
-    sequence.push({type:"nav", cb:function(){ showRoot(); }});
-    // step 2: click the album row
+    // step 1: click the album row (already at root — no reload needed)
     sequence.push({type:"click-album", album:album});
     // step 3: click the song row (opens inline accordion)
     sequence.push({type:"click-song", album:album, song:song});
@@ -1016,23 +1014,57 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
     return null;
   }
 
+  function clearChaosHover(){ document.querySelectorAll('.chaos-hover').forEach(function(e){e.classList.remove('chaos-hover');}); }
   function moveToEl(el, cb){
     if(!el){ cb&&cb(); return; }
-    var r=el.getBoundingClientRect();
-    // aim at the text — first 60% of width (avoids the > arrow), vertical center
-    targetX=r.left+Math.min(r.width*0.35, 120)+Math.random()*Math.min(r.width*0.25,60);
-    targetY=r.top+r.height*0.5;
-    // wait until we're close, then fire cb
-    var attempts=0;
-    var check=setInterval(function(){
-      var dx=targetX-posX, dy=targetY-posY;
-      if(Math.sqrt(dx*dx+dy*dy)<12||++attempts>80){
-        clearInterval(check);
-        cb&&cb();
-      }
-    },30);
+    // scroll into view, wait one frame for layout to settle, then aim cursor
+    el.scrollIntoView({block:"center",behavior:"instant"});
+    setTimeout(function(){
+      tY=sw.scrollTop;
+      var r=el.getBoundingClientRect();
+      targetX=r.left+Math.min(r.width*0.35,120)+Math.random()*Math.min(r.width*0.25,60);
+      targetY=r.top+r.height*0.5;
+      // apply hover glow + arrow immediately
+      clearChaosHover();
+      el.classList.add('chaos-hover');
+      var arr=el.querySelector('.arr');
+      if(arr) arr.style.opacity='1';
+      // glide cursor to element
+      var attempts=0;
+      var check=setInterval(function(){
+        var dx=targetX-posX, dy=targetY-posY;
+        if(Math.sqrt(dx*dx+dy*dy)<12||++attempts>80){
+          clearInterval(check);
+          // cursor has ARRIVED — now fire the text scramble
+          var fin=el.dataset.final;
+          if(fin && el._clkHandler){
+            var GC='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\\.:*!?#@%-';
+            var tn=null;
+            for(var i=0;i<el.childNodes.length;i++){if(el.childNodes[i].nodeType===3){tn=el.childNodes[i];break;}}
+            if(tn){
+              var scrambled='';
+              for(var ci=0;ci<fin.length;ci++) scrambled+=GC[Math.floor(Math.random()*GC.length)];
+              tn.nodeValue=scrambled;
+              var steps=8,stp=0;
+              var rev=setInterval(function(){
+                stp++;
+                var resolved=Math.floor((stp/steps)*fin.length);
+                var s='';
+                for(var ci=0;ci<fin.length;ci++){
+                  s+=ci<resolved?fin[ci]:GC[Math.floor(Math.random()*GC.length)];
+                }
+                if(tn) tn.nodeValue=s;
+                if(stp>=steps){clearInterval(rev);if(tn)tn.nodeValue=fin;}
+              },35);
+            }
+          }
+          cb&&cb();
+        }
+      },30);
+    },32);
   }
 
+  
   var stepTimeout=null;
   function runStep(){
     if(!window.chaosRunning) return;
@@ -1041,7 +1073,7 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
 
     if(step.type==="nav"){
       step.cb();
-      stepTimeout=setTimeout(runStep, 900);
+      stepTimeout=setTimeout(runStep, 1200);
     } else if(step.type==="click-album"){
       stepTimeout=setTimeout(function(){
         var el=findRowByText(step.album.label);
@@ -1071,8 +1103,7 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
           if(!el) return; // give up gracefully
           // cursor is already near song row — now glide down to the version
           moveToEl(el, function(){
-            if(el) el.click();
-            // EXPLODE — "I DID IT" moment
+            if(el){ el.dispatchEvent(new MouseEvent('mouseenter',{bubbles:true})); el.click(); }
             chaosExplode(posX,posY,function(){
               endChaos();
             });
@@ -1091,67 +1122,83 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
     if(chaosRaf) cancelAnimationFrame(chaosRaf);
     if(stepTimeout) clearTimeout(stepTimeout);
     chaosGhosts=[];
-
-    // ── hand cursor back: pulse white bloom at chaos cursor position ──
-    // inject the final chaos position into the ghost cursor system
+    clearChaosHover();
     window.termMx=posX; window.termMy=posY;
-    if(gcc&&gcv){
-      // pulse: 3 expanding white rings then clear
-      var pRings=[
-        {r:4,  maxR:55, alpha:0.9, speed:3.5},
-        {r:10, maxR:80, alpha:0.6, speed:2.8},
-        {r:18, maxR:110,alpha:0.35,speed:2.2}
-      ];
-      var pFrame=0;
-      var pRaf;
-      function pulseDraw(){
-        pFrame++;
-        gcc.clearRect(0,0,gcv.width,gcv.height);
-        var done=true;
-        for(var i=0;i<pRings.length;i++){
-          var ring=pRings[i];
-          ring.r+=ring.speed;
-          ring.alpha*=0.87;
-          if(ring.r<ring.maxR){ done=false; }
-          gcc.beginPath();gcc.arc(posX,posY,ring.r,0,Math.PI*2);
-          gcc.strokeStyle="rgba(255,255,255,"+ring.alpha.toFixed(3)+")";
-          gcc.lineWidth=1.5;
-          gcc.stroke();
-        }
-        // solid dot at center fading
-        gcc.beginPath();gcc.arc(posX,posY,3,0,Math.PI*2);
-        gcc.fillStyle="rgba(255,255,255,"+(Math.max(0,0.9-pFrame*0.06)).toFixed(3)+")";
-        gcc.fill();
-        if(!done && pFrame<40) pRaf=requestAnimationFrame(pulseDraw);
-        else gcc.clearRect(0,0,gcv.width,gcv.height);
-      }
-      pRaf=requestAnimationFrame(pulseDraw);
-    }
+    if(gcc&&gcv) gcc.clearRect(0,0,gcv.width,gcv.height);
   }
-
   // ── click burst: rings expand outward then fade ──
   var clickBursts=[];
   function chaosClick(x,y){
-    for(var i=0;i<3;i++){
-      clickBursts.push({x:x,y:y,r:4+i*6,maxR:40+i*22,alpha:0.9-i*0.2,life:1.0,speed:2.8+i*1.4});
+    // clear hover glow and hide arrows
+    document.querySelectorAll('.chaos-hover').forEach(function(e){
+      e.classList.remove('chaos-hover');
+      var arr=e.querySelector('.arr'); if(arr) arr.style.opacity='';
+    });
+    // core white-hot flash particle
+    clickBursts.push({x:x,y:y,r:2,maxR:18,alpha:1.0,life:1.0,speed:6.0,core:true});
+    // 4 expanding rings — wider, slower decay
+    for(var i=0;i<4;i++){
+      clickBursts.push({x:x,y:y,r:3+i*5,maxR:55+i*28,alpha:1.0-i*0.15,life:1.0,speed:2.2+i*1.2,core:false});
     }
-    // also spike the cursor glitch intensity
-    chaosGlitchSpike=18;
+    chaosGlitchSpike=28;
   }
-  // ── CHAOS EXPLODE — bigger click burst, stays red until done ──
+  // ── CHAOS EXPLODE — click, breathe, then exit-style fade back to root ──
   function chaosExplode(x,y,cb){
-    // keep chaosRunning TRUE so chaosLoop keeps drawing red
-    // push 6 rings instead of 3, larger radii, stronger spike
-    for(var i=0;i<6;i++){
-      clickBursts.push({x:x,y:y,r:4+i*8,maxR:70+i*32,alpha:1.0-i*0.12,life:1.0,speed:3.5+i*0.8});
-    }
-    chaosGlitchSpike=40;
-    // after burst fades hand off — loop naturally winds down rings
+    chaosClick(x,y);
+    // lock cursor in place for dramatic pause
+    setTimeout(function(){ targetX=posX; targetY=posY; }, 650);
+
+    // after pause: heavy scanline glitch builds, then white flash cut to hub
     setTimeout(function(){
-      window.chaosRunning=false;
-      if(chaosRaf) cancelAnimationFrame(chaosRaf);
-      cb&&cb();
-    },1400);
+      var term=document.getElementById("terminal");
+      var cv=document.getElementById("dis-canvas");
+      cv.width=window.innerWidth; cv.height=window.innerHeight;
+      cv.style.zIndex="9998"; cv.style.opacity="1";
+      var ctx=cv.getContext("2d");
+
+      // phase 1: 900ms of escalating scanline chaos + terminal dims
+      var EF_START=performance.now(), EF_DUR=900;
+      var EF_FRAMES=0;
+      var runFade=function(ts){
+        EF_FRAMES++;
+        var p=Math.min((ts-EF_START)/EF_DUR,1);
+        // terminal dims hard as glitch builds
+        var flicker=(EF_FRAMES%3===0)?0.7:1.0;
+        term.style.opacity=String((1-p*0.7)*flicker);
+        ctx.clearRect(0,0,cv.width,cv.height);
+        // scanlines escalate — more, bigger, harder shift
+        var intensity=Math.pow(p,0.6);
+        var slices=Math.floor(4+intensity*12);
+        for(var s=0;s<slices;s++){
+          var sy=Math.random()*cv.height;
+          var sh=1+Math.random()*8*intensity;
+          var shift=(Math.random()-0.5)*40*intensity;
+          var alpha=intensity*(0.04+Math.random()*0.12);
+          ctx.fillStyle="rgba(236,234,228,"+alpha.toFixed(3)+")";
+          ctx.fillRect(shift,sy,cv.width,sh);
+        }
+        if(p<1){ requestAnimationFrame(runFade); }
+        else {
+          // phase 2: white flash — full screen white for 2 frames then hard cut
+          ctx.fillStyle="rgba(245,243,238,1)";
+          ctx.fillRect(0,0,cv.width,cv.height);
+          term.style.opacity="0";
+          if(gcv){ gcv.style.opacity="0"; }
+          setTimeout(function(){
+            ctx.clearRect(0,0,cv.width,cv.height);
+            cv.style.zIndex=""; cv.style.opacity="";
+            term.style.transition=""; term.style.opacity="";
+            if(gcv){ gcv.style.transition=""; gcv.style.opacity=""; }
+            window.chaosRunning=false;
+            if(chaosRaf) cancelAnimationFrame(chaosRaf);
+            chaosGhosts=[]; clickBursts=[];
+            showRoot();
+            cb&&cb();
+          }, 80);
+        }
+      };
+      requestAnimationFrame(runFade);
+    }, 1200);
   }
   var chaosGlitchSpike=0;
 
@@ -1169,12 +1216,12 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
 
   var frameTs=0;
   function chaosLoop(ts){
-    if(!window.chaosRunning){ return; }
+    if(!window.chaosRunning && !clickBursts.length){ gcc&&gcv&&gcc.clearRect(0,0,gcv.width,gcv.height); return; }
     frameTs=ts||frameTs;
 
     // ease toward target
-    posX+=(targetX-posX)*0.07;
-    posY+=(targetY-posY)*0.07;
+    posX+=(targetX-posX)*0.055;
+    posY+=(targetY-posY)*0.055;
 
     // push ghost trail point
     chaosGhosts.push({
@@ -1237,17 +1284,28 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
       for(var b=0;b<clickBursts.length;b++){
         var burst=clickBursts[b];
         burst.r+=burst.speed;
-        burst.alpha*=0.88;
+        burst.alpha*=burst.core?0.82:0.91;
         burst.life=burst.alpha;
-        gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r,0,Math.PI*2);
-        gcc.strokeStyle="rgba(255,120,80,"+burst.alpha.toFixed(3)+")";
-        gcc.lineWidth=1.5;
-        gcc.stroke();
-        // inner fill flash on first frames
-        if(burst.r<burst.maxR*0.25){
-          gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r*0.5,0,Math.PI*2);
-          gcc.fillStyle="rgba(255,160,120,"+(burst.alpha*0.3).toFixed(3)+")";
-          gcc.fill();
+        if(burst.core){
+          // white-hot core: solid filled circle, bleeds to orange edge
+          var cg=gcc.createRadialGradient(burst.x,burst.y,0,burst.x,burst.y,burst.r);
+          cg.addColorStop(0,"rgba(255,255,240,"+burst.alpha.toFixed(3)+")");
+          cg.addColorStop(0.5,"rgba(255,180,80,"+(burst.alpha*0.8).toFixed(3)+")");
+          cg.addColorStop(1,"rgba(255,80,40,0)");
+          gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r,0,Math.PI*2);
+          gcc.fillStyle=cg; gcc.fill();
+        } else {
+          // rings: thicker, white-to-orange
+          gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r,0,Math.PI*2);
+          gcc.strokeStyle="rgba(255,140,60,"+burst.alpha.toFixed(3)+")";
+          gcc.lineWidth=2.5-b*0.2;
+          gcc.stroke();
+          // inner glow fill on early frames
+          if(burst.r<burst.maxR*0.3){
+            gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r*0.6,0,Math.PI*2);
+            gcc.fillStyle="rgba(255,200,100,"+(burst.alpha*0.18).toFixed(3)+")";
+            gcc.fill();
+          }
         }
       }
       clickBursts=clickBursts.filter(function(b){return b.r<b.maxR&&b.alpha>0.02;});
@@ -1411,8 +1469,8 @@ var sw=document.getElementById("scroll-world"),si=document.getElementById("scrol
 var tY=0,isDrag=false,dragMoved=false,dSY=0,dTY=0;
 function recalc(){}
 function getMaxY(){return Math.max(0,si.scrollHeight-sw.clientHeight);}
-sw.addEventListener("wheel",function(e){e.preventDefault();tY=Math.max(0,Math.min(tY+e.deltaY,getMaxY()));sw.scrollTop=tY;},{passive:false});
-sw.addEventListener("mousedown",function(e){if(e.button!==0)return;isDrag=true;dragMoved=false;dSY=e.clientY;dTY=tY;});
+sw.addEventListener("wheel",function(e){e.preventDefault();if(window.chaosRunning)return;tY=Math.max(0,Math.min(tY+e.deltaY,getMaxY()));sw.scrollTop=tY;},{passive:false});
+sw.addEventListener("mousedown",function(e){if(e.button!==0||window.chaosRunning)return;isDrag=true;dragMoved=false;dSY=e.clientY;dTY=tY;});
 window.addEventListener("mousemove",function(e){if(!isDrag)return;var dy=dSY-e.clientY;if(Math.abs(dy)>5){dragMoved=true;document.body.style.cursor="ns-resize";tY=Math.max(0,Math.min(dTY+dy*1.2,getMaxY()));sw.scrollTop=tY;}});
 window.addEventListener("mouseup",function(){isDrag=false;dragMoved=false;document.body.style.cursor="default";});
 window.addEventListener("resize",recalc);
@@ -1450,9 +1508,9 @@ function showRoot(){
   if(_bov)_bov.style.opacity="1";
   document.getElementById("main-panel").classList.remove("booting");
   document.getElementById("side-panel").classList.remove("booting");
-  wipe();document.getElementById("hdr-path").textContent="Root";document.getElementById("ftr-path").textContent="~/root";document.getElementById("ph-label").textContent="Sound Repository";document.getElementById("ph-right").textContent="3 Albums / 14 Songs / 67 Files";setLoc(null,null,null);log("cd /root");mkSp(1);mkT("Sound Repository","hi");mkSp(2);mkRl();mkT("Explore the Memory.","dd");mkT("Pull Up the Seeds.","dd");mkT("Songs / Stems / Versions / Drafts","dd");mkRl();mkSp(2);mkT("Albums","d");mkSp(1);ALBUMS.forEach(function(a,i){(function(album,idx){mkT(String(idx+1).padStart(2,"0")+".  "+album.label+"  "+album.year,"",function(){miniBootThen("album",album.label,function(){openAlbum(album);});});})(a,i);});mkSp(3);mkRl();mkT("Access: Private / Do Not Distribute","dd");mkSp(8);setTimeout(function(){recalc();revealAll();},30);}
+  wipe();document.getElementById("hdr-path").textContent="Root";document.getElementById("ftr-path").textContent="~/root";document.getElementById("ph-label").textContent="Sound Repository";document.getElementById("ph-right").textContent="3 Albums / 14 Songs / 67 Files";setLoc(null,null,null);log("cd /root");mkSp(1);mkT("Sound Repository","hi");mkSp(2);mkRl();mkT("Explore the Memory.","dd");mkT("Pull Up the Seeds.","dd");mkT("Songs / Stems / Versions / Drafts","dd");mkRl();mkSp(2);mkT("Albums","d");mkSp(1);ALBUMS.forEach(function(a,i){(function(album,idx){mkT(String(idx+1).padStart(2,"0")+".  "+album.label+"  "+album.year,"",function(){if(window.chaosRunning){openAlbum(album);}else{miniBootThen("album",album.label,function(){openAlbum(album);});}});})(a,i);});mkSp(3);mkRl();mkT("Access: Private / Do Not Distribute","dd");mkSp(8);setTimeout(function(){recalc();revealAll();},30);}
 function openAlbum(album){wipe();document.getElementById("hdr-path").textContent=album.label;document.getElementById("ftr-path").textContent="~/"+album.label;document.getElementById("ph-label").textContent=album.label;document.getElementById("ph-right").textContent=album.year+" / "+album.type;setLoc(album.label,null,null);log("open "+album.label);mkSp(1);mkT(album.label,"hi");mkT(album.year+"  "+album.type,"d");mkSp(2);album.desc.forEach(function(d){mkT(d,"d");});mkSp(2);mkRl();mkT("Tracklist ["+album.songs.length+"]","d");mkRl();mkSp(1);album.songs.forEach(function(s,idx){(function(song,i){var row=mkT(String(i+1).padStart(2,"0")+".  "+song.label+"  ["+song.versions.length+"v / "+song.stems.length+"s]","",function(){toggleSong(song,album,row,xEl);});var xEl=document.createElement("div");xEl.dataset.open="0";si.appendChild(xEl);})(s,idx);});mkSp(3);mkRl();mkT("../ Back to Discography","d",function(){miniBootThen("root","",function(){showRoot();});});mkSp(8);setTimeout(function(){recalc();revealAll();},30);}
-function toggleSong(song,album,row,xEl){if(xEl.dataset.open==="1"){xEl.innerHTML="";xEl.dataset.open="0";row.classList.remove("on");setLoc(album.label,null,null);log("close "+song.label);recalc();return;}document.querySelectorAll("[data-open='1']").forEach(function(el){el.innerHTML="";el.dataset.open="0";});document.querySelectorAll(".t.cl.on").forEach(function(el){el.classList.remove("on");});row.classList.add("on");xEl.dataset.open="1";setLoc(album.label,song.label,null);log("expand "+song.label);function iT(text,cls,onClick){var el=document.createElement("span");el.className="t "+(cls||"");el.dataset.final=text;el.textContent=text;if(onClick){el.classList.add("cl");var a=document.createElement("span");a.className="arr";a.textContent=" >";el.appendChild(a);el._clkHandler=onClick;el.addEventListener("mousedown",function(e){e.stopPropagation();});el.addEventListener("click",function(e){e.stopPropagation();onClick(el);});}xEl.appendChild(el);return el;}function iSp(){var e=document.createElement("span");e.className="t sp";xEl.appendChild(e);}function iRl(){var e=document.createElement("span");e.className="t rule";e.textContent="-".repeat(80);xEl.appendChild(e);}iSp();iRl();iT("  Versions ["+song.versions.length+"]","d");iRl();iSp();song.versions.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"hi",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();iRl();iT("  Stems ["+song.stems.length+"]","d");iRl();iSp();song.stems.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();var els=xEl.querySelectorAll(".t:not(.sp):not(.rule)"),delay=0;els.forEach(function(el){var fin=el.dataset.final;if(!fin)return;el.textContent=fin.replace(/[^ ]/g,function(){return rc();});(function(e,f){setTimeout(function(){glitchReveal(e,f,160);},delay);})(el,fin);delay+=20;});setTimeout(recalc,50);}
+function toggleSong(song,album,row,xEl){if(xEl.dataset.open==="1"){xEl.innerHTML="";xEl.dataset.open="0";row.classList.remove("on");setLoc(album.label,null,null);log("close "+song.label);recalc();return;}document.querySelectorAll("[data-open='1']").forEach(function(el){el.innerHTML="";el.dataset.open="0";});document.querySelectorAll(".t.cl.on").forEach(function(el){el.classList.remove("on");});row.classList.add("on");xEl.dataset.open="1";setLoc(album.label,song.label,null);log("expand "+song.label);function iT(text,cls,onClick){var el=document.createElement("span");el.className="t "+(cls||"");el.dataset.final=text;el.textContent=text;if(onClick){el.classList.add("cl");var a=document.createElement("span");a.className="arr";a.textContent=" >";el.appendChild(a);el._clkHandler=onClick;el.addEventListener("mousedown",function(e){e.stopPropagation();});el.addEventListener("click",function(e){e.stopPropagation();onClick(el);});}xEl.appendChild(el);return el;}function iSp(){var e=document.createElement("span");e.className="t sp";xEl.appendChild(e);}function iRl(){var e=document.createElement("span");e.className="t rule";e.textContent="-".repeat(80);xEl.appendChild(e);}iSp();iRl();iT("  Versions ["+song.versions.length+"]","d");iRl();iSp();song.versions.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();iRl();iT("  Stems ["+song.stems.length+"]","d");iRl();iSp();song.stems.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();var els=xEl.querySelectorAll(".t:not(.sp):not(.rule)"),delay=0;els.forEach(function(el){var fin=el.dataset.final;if(!fin)return;el.textContent=fin.replace(/[^ ]/g,function(){return rc();});(function(e,f){setTimeout(function(){glitchReveal(e,f,160);},delay);})(el,fin);delay+=20;});setTimeout(recalc,50);}
 var npAudio=document.getElementById("np-audio");
 function doPlay(el,file,song,album){log("play "+file.label);setLoc(album.label,song.label,file.label+" ["+file.tag+"]");if(playEl)playEl.classList.remove("playing");if(playEl===el){playEl=null;npAudio.pause();document.getElementById("np-title").textContent="--";document.getElementById("pb-status").textContent="Idle";return;}playEl=el;el.classList.add("playing");document.getElementById("np-title").textContent=song.label+" / "+file.label;document.getElementById("pb-status").textContent="Active";if(file.src&&file.src!==""){
     npAudio.src=file.src;
@@ -1616,8 +1674,8 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
   var ctx=cv.getContext("2d");
   var ghosts=[];
   var mx=-999,my=-999;
-  var GHOST_MAX=32;
-  var GHOST_LIFE=68; // longer life = haze lingers more
+  var GHOST_MAX=22;
+  var GHOST_LIFE=50; // longer life = haze lingers more
   var running=false;
   var frameN=0;
   var overLink=false; // true when cursor is over a clickable element
