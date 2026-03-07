@@ -964,10 +964,10 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
   });
 
   // ── ghost cursor state — mirrors Layer 2 ghost cursor ──
-  var gcv=document.getElementById("ghost-cursor-cv");
+  var gcv=document.getElementById("chaos-cursor-cv");
   var gcc=gcv?gcv.getContext("2d"):null;
-  // ensure ghost canvas is visible
-  if(gcv) gcv.style.opacity="1";
+  // show chaos canvas when active (hidden by default)
+  // gcv opacity controlled by chaosRunning start/end
 
   // start from wherever the real cursor currently is
   var posX=(window.termMx||glitchMx||window.innerWidth*0.5);
@@ -1134,12 +1134,10 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
       e.classList.remove('chaos-hover');
       var arr=e.querySelector('.arr'); if(arr) arr.style.opacity='';
     });
-    // core white-hot flash particle
-    clickBursts.push({x:x,y:y,r:2,maxR:18,alpha:1.0,life:1.0,speed:6.0,core:true});
-    // 4 expanding rings — wider, slower decay
-    for(var i=0;i<4;i++){
-      clickBursts.push({x:x,y:y,r:3+i*5,maxR:55+i*28,alpha:1.0-i*0.15,life:1.0,speed:2.2+i*1.2,core:false});
-    }
+    // static glow — fixed radius halos, no expansion
+    clickBursts.push({x:x,y:y,r:6, maxR:6, alpha:1.0,life:1.0,speed:0,core:true});
+    clickBursts.push({x:x,y:y,r:22,maxR:22,alpha:0.6,life:1.0,speed:0,core:false});
+    clickBursts.push({x:x,y:y,r:55,maxR:55,alpha:0.3,life:1.0,speed:0,core:false});
     chaosGlitchSpike=28;
   }
   // ── CHAOS EXPLODE — click, breathe, then exit-style fade back to root ──
@@ -1166,16 +1164,69 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
         var flicker=(EF_FRAMES%3===0)?0.7:1.0;
         term.style.opacity=String((1-p*0.7)*flicker);
         ctx.clearRect(0,0,cv.width,cv.height);
-        // scanlines escalate — more, bigger, harder shift
+        // black hole: scanlines + noise pulled inward toward cursor (x,y)
         var intensity=Math.pow(p,0.6);
-        var slices=Math.floor(4+intensity*12);
+        var maxDist=Math.sqrt(cv.width*cv.width+cv.height*cv.height);
+        var frontier=maxDist*Math.pow(p,0.45);
+
+        // ── streaks ──
+        var slices=Math.floor(18+intensity*48);
         for(var s=0;s<slices;s++){
-          var sy=Math.random()*cv.height;
-          var sh=1+Math.random()*8*intensity;
-          var shift=(Math.random()-0.5)*40*intensity;
-          var alpha=intensity*(0.04+Math.random()*0.12);
+          var ang=Math.random()*Math.PI*2;
+          var rdist=Math.random()*frontier;
+          var sx=x+Math.cos(ang)*rdist;
+          var sy=y+Math.sin(ang)*rdist;
+          if(sx<0||sx>cv.width||sy<0||sy>cv.height) continue;
+          var proximity=1-(rdist/frontier);
+          var pullX=(x-sx)*proximity*0.4*intensity;
+          var pullY=(y-sy)*proximity*0.3*intensity;
+          var sh=0.5+Math.random()*3*proximity*intensity;
+          var len=6+proximity*80*intensity;
+          var alpha=proximity*intensity*(0.05+Math.random()*0.1);
+          ctx.save();
+          ctx.translate(sx+pullX,sy+pullY);
+          ctx.rotate(ang+Math.PI);
           ctx.fillStyle="rgba(236,234,228,"+alpha.toFixed(3)+")";
-          ctx.fillRect(shift,sy,cv.width,sh);
+          ctx.fillRect(-len/2,-sh/2,len,sh);
+          ctx.restore();
+        }
+
+        // ── noise pixels — scattered static in the collapse zone ──
+        var noisePx=Math.floor(40+intensity*120);
+        for(var n=0;n<noisePx;n++){
+          var nang=Math.random()*Math.PI*2;
+          var ndist=Math.random()*frontier;
+          var nx=x+Math.cos(nang)*ndist;
+          var ny=y+Math.sin(nang)*ndist;
+          if(nx<0||nx>cv.width||ny<0||ny>cv.height) continue;
+          var nprox=1-(ndist/frontier);
+          var na=nprox*intensity*(0.08+Math.random()*0.3);
+          var nr=Math.random()*1.5;
+          ctx.fillStyle="rgba(236,234,228,"+na.toFixed(3)+")";
+          ctx.fillRect(nx,ny,Math.max(nr,0.5),Math.max(nr,0.5));
+        }
+
+        // ── occasional hard bright spike lines ──
+        if(Math.random()<intensity*0.6){
+          var sang=Math.random()*Math.PI*2;
+          var slen=20+Math.random()*frontier*0.4;
+          ctx.save();
+          ctx.translate(x,y);
+          ctx.rotate(sang);
+          ctx.fillStyle="rgba(255,253,248,"+(intensity*(0.08+Math.random()*0.12)).toFixed(3)+")";
+          ctx.fillRect(0,-0.5,slen,1);
+          ctx.restore();
+        }
+
+        // ── dark void growing from cursor ──
+        var voidR=frontier*0.4;
+        if(voidR>2){
+          var vg=ctx.createRadialGradient(x,y,0,x,y,voidR);
+          vg.addColorStop(0,"rgba(0,0,0,"+(intensity*0.85).toFixed(3)+")");
+          vg.addColorStop(0.4,"rgba(0,0,0,"+(intensity*0.45).toFixed(3)+")");
+          vg.addColorStop(1,"rgba(0,0,0,0)");
+          ctx.beginPath();ctx.arc(x,y,voidR,0,Math.PI*2);
+          ctx.fillStyle=vg;ctx.fill();
         }
         if(p<1){ requestAnimationFrame(runFade); }
         else {
@@ -1183,12 +1234,11 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
           ctx.fillStyle="rgba(245,243,238,1)";
           ctx.fillRect(0,0,cv.width,cv.height);
           term.style.opacity="0";
-          if(gcv){ gcv.style.opacity="0"; }
+          // ghost canvas stays visible — don't touch it
           setTimeout(function(){
             ctx.clearRect(0,0,cv.width,cv.height);
             cv.style.zIndex=""; cv.style.opacity="";
             term.style.transition=""; term.style.opacity="";
-            if(gcv){ gcv.style.transition=""; gcv.style.opacity=""; }
             window.chaosRunning=false;
             if(chaosRaf) cancelAnimationFrame(chaosRaf);
             chaosGhosts=[]; clickBursts=[];
@@ -1215,6 +1265,20 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
   }
 
   var frameTs=0;
+  function drawChaosGlow(cx,cy,rx,ry,alpha){
+    gcc.save();
+    gcc.translate(cx,cy);
+    gcc.scale(rx/Math.max(ry,0.5),1);
+    var grd=gcc.createRadialGradient(0,0,0,0,0,ry);
+    grd.addColorStop(0,  "rgba(255,80,50,"+(alpha).toFixed(3)+")");
+    grd.addColorStop(0.25,"rgba(255,80,50,"+(alpha*0.55).toFixed(3)+")");
+    grd.addColorStop(0.6, "rgba(255,80,50,"+(alpha*0.18).toFixed(3)+")");
+    grd.addColorStop(0.85,"rgba(255,80,50,"+(alpha*0.05).toFixed(3)+")");
+    grd.addColorStop(1,  "rgba(255,80,50,0)");
+    gcc.beginPath();gcc.arc(0,0,Math.max(ry,1),0,Math.PI*2);
+    gcc.fillStyle=grd;gcc.fill();
+    gcc.restore();
+  }
   function chaosLoop(ts){
     if(!window.chaosRunning && !clickBursts.length){ gcc&&gcv&&gcc.clearRect(0,0,gcv.width,gcv.height); return; }
     frameTs=ts||frameTs;
@@ -1283,75 +1347,97 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
       // ── click burst rings ──
       for(var b=0;b<clickBursts.length;b++){
         var burst=clickBursts[b];
-        burst.r+=burst.speed;
-        burst.alpha*=burst.core?0.82:0.91;
+        burst.alpha*=burst.core?0.78:0.84;
         burst.life=burst.alpha;
+        var rg=gcc.createRadialGradient(burst.x,burst.y,0,burst.x,burst.y,burst.r);
         if(burst.core){
-          // white-hot core: solid filled circle, bleeds to orange edge
-          var cg=gcc.createRadialGradient(burst.x,burst.y,0,burst.x,burst.y,burst.r);
-          cg.addColorStop(0,"rgba(255,255,240,"+burst.alpha.toFixed(3)+")");
-          cg.addColorStop(0.5,"rgba(255,180,80,"+(burst.alpha*0.8).toFixed(3)+")");
-          cg.addColorStop(1,"rgba(255,80,40,0)");
-          gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r,0,Math.PI*2);
-          gcc.fillStyle=cg; gcc.fill();
+          rg.addColorStop(0,"rgba(255,255,200,"+burst.alpha.toFixed(3)+")");
+          rg.addColorStop(0.4,"rgba(255,100,30,"+(burst.alpha*0.6).toFixed(3)+")");
+          rg.addColorStop(1,"rgba(200,40,10,0)");
         } else {
-          // rings: thicker, white-to-orange
-          gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r,0,Math.PI*2);
-          gcc.strokeStyle="rgba(255,140,60,"+burst.alpha.toFixed(3)+")";
-          gcc.lineWidth=2.5-b*0.2;
-          gcc.stroke();
-          // inner glow fill on early frames
-          if(burst.r<burst.maxR*0.3){
-            gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r*0.6,0,Math.PI*2);
-            gcc.fillStyle="rgba(255,200,100,"+(burst.alpha*0.18).toFixed(3)+")";
-            gcc.fill();
+          rg.addColorStop(0,"rgba(240,80,20,"+(burst.alpha*0.4).toFixed(3)+")");
+          rg.addColorStop(0.5,"rgba(180,40,10,"+(burst.alpha*0.15).toFixed(3)+")");
+          rg.addColorStop(1,"rgba(120,20,0,0)");
+        }
+        gcc.beginPath();gcc.arc(burst.x,burst.y,burst.r,0,Math.PI*2);
+        gcc.fillStyle=rg; gcc.fill();
+        // noise flicker on core — scattered bright pixels
+        if(burst.core && burst.alpha>0.2){
+          for(var n=0;n<8;n++){
+            var ang=Math.random()*Math.PI*2;
+            var dist=Math.random()*burst.r*2.5;
+            var nx=burst.x+Math.cos(ang)*dist;
+            var ny=burst.y+Math.sin(ang)*dist;
+            var na=burst.alpha*(0.4+Math.random()*0.6);
+            gcc.fillStyle="rgba(255,200,80,"+na.toFixed(3)+")";
+            gcc.fillRect(nx,ny,1+Math.random()*1.5,1);
           }
         }
       }
       clickBursts=clickBursts.filter(function(b){return b.r<b.maxR&&b.alpha>0.02;});
 
-      // ── lead cursor — glitchier ──
-      var pulse=0.6+0.4*Math.sin(ts*0.007);
-      var spikeBoost=chaosGlitchSpike>0?(chaosGlitchSpike/18):0;
+      // ── chaos cursor — mirrors white cursor, red, blooms on click ──
+      var spikeBoost=chaosGlitchSpike>0?(chaosGlitchSpike/28):0;
       if(chaosGlitchSpike>0) chaosGlitchSpike--;
 
-      // extra glitch duplicate — offset ghost
-      if(Math.random()<0.35+spikeBoost*0.5){
-        var gox=(Math.random()-0.5)*(8+spikeBoost*30);
-        var goy=(Math.random()-0.5)*(4+spikeBoost*12);
-        gcc.save();gcc.globalAlpha=0.25+spikeBoost*0.35;
-        drawImperfectGlow(posX+gox,posY+goy,20,20,0.3+spikeBoost*0.4,255,60,40);
-        gcc.beginPath();gcc.arc(posX+gox,posY+goy,2+spikeBoost*3,0,Math.PI*2);
-        gcc.fillStyle="rgba(255,80,50,0.8)";gcc.fill();
-        gcc.restore();
+      var skewT=ts*0.00055;
+      var hazeRot=Math.sin(skewT*0.6)*0.35+Math.sin(skewT*1.4)*0.15;
+
+      // pulse when over a chaos-hover link
+      var onLink=document.querySelector('.chaos-hover')!==null;
+      if(typeof chaosLoop._lb==="undefined") chaosLoop._lb=1.0;
+      chaosLoop._lb+=((onLink?1.55:1.0)-chaosLoop._lb)*0.12;
+      var clb=chaosLoop._lb;
+
+      // glow bloom on click spike
+      if(spikeBoost>0){
+        var bloomR=8+spikeBoost*40;
+        var rg=gcc.createRadialGradient(posX,posY,0,posX,posY,bloomR);
+        rg.addColorStop(0,"rgba(255,120,60,"+(spikeBoost*0.55).toFixed(3)+")");
+        rg.addColorStop(0.4,"rgba(220,60,20,"+(spikeBoost*0.2).toFixed(3)+")");
+        rg.addColorStop(1,"rgba(180,30,10,0)");
+        gcc.beginPath();gcc.arc(posX,posY,bloomR,0,Math.PI*2);
+        gcc.fillStyle=rg;gcc.fill();
       }
-      // scanline tear on cursor itself during spike
-      if(spikeBoost>0.3){
-        for(var s=0;s<4;s++){
-          var sy=posY+(Math.random()-0.5)*40;
-          var sw2=30+Math.random()*80;
-          var sdrift=(Math.random()-0.5)*spikeBoost*50;
-          gcc.save();gcc.globalAlpha=spikeBoost*0.4;
-          gcc.fillStyle="rgba(255,100,60,0.6)";
-          gcc.fillRect(posX-sw2/2+sdrift,sy,sw2,1+Math.floor(Math.random()*3));
-          gcc.restore();
-        }
-      }
-      // main haze
-      drawImperfectGlow(posX,posY,(28+spikeBoost*12)*pulse,(28+spikeBoost*12)*pulse,0.22+spikeBoost*0.15,230,90,70);
-      // dot
-      gcc.beginPath();gcc.arc(posX,posY,2.5+spikeBoost*2,0,Math.PI*2);
-      gcc.fillStyle="rgba(255,140,110,0.95)";gcc.fill();
+
+      // dot — same size/morph as white cursor, scaled by link boost
+      var dotScale=clb+spikeBoost*1.8;
+      var dotRx=1.4*dotScale*(0.75+Math.sin(skewT*1.1)*0.28);
+      var dotRy=1.4*dotScale*(0.75+Math.cos(skewT*0.9)*0.28);
+      gcc.save();
+      gcc.translate(posX,posY);
+      gcc.rotate(hazeRot*0.5);
+      gcc.scale(dotRx/Math.max(dotRy,0.5),1);
+      gcc.beginPath();gcc.arc(0,0,Math.max(dotRy,1),0,Math.PI*2);
+      gcc.fillStyle="rgba(255,80,50,0.9)";
+      gcc.fill();
+      gcc.restore();
     }
 
     chaosRaf=requestAnimationFrame(chaosLoop);
   }
 
   // start sequence and loop together
+  // if not already at root, snap there instantly before starting
   setTimeout(function(){
     if(window.chaosRunning){
+      if(gcv){gcv.style.opacity="1"; gcv.width=window.innerWidth; gcv.height=window.innerHeight;}
       chaosRaf=requestAnimationFrame(chaosLoop);
-      runStep();
+      // check if terminal is live and at root — if not, snap to root now
+      var term=document.getElementById("terminal");
+      var atRoot=term.classList.contains("live") && document.getElementById("hdr-path").textContent==="Root";
+      if(!atRoot){
+        // ensure terminal is visible
+        if(!term.classList.contains("live")){
+          term.classList.add("live");
+          document.getElementById("hub").classList.add("gone");
+        }
+        showRoot();
+        // wait for DOM to render before starting sequence
+        setTimeout(runStep, 80);
+      } else {
+        runStep();
+      }
     }
   },200);
 })
@@ -1666,7 +1752,8 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
 })();
 /* ── END THOUGHT BUBBLES ─────────────────────────────────────────── */
 </script>
-<canvas id="ghost-cursor-cv" style="position:fixed;inset:0;width:100%;height:100%;z-index:9998;pointer-events:none;opacity:0;transition:opacity .3s;"></canvas>
+<canvas id="ghost-cursor-cv" style="position:fixed;inset:0;width:100%;height:100%;z-index:9997;pointer-events:none;opacity:1;transition:opacity .3s;"></canvas>
+<canvas id="chaos-cursor-cv" style="position:fixed;inset:0;width:100%;height:100%;z-index:9998;pointer-events:none;opacity:0;"></canvas>
 <script>
 // ── GHOST CURSOR TRAIL (terminal only) ───────────────────────────────
 (function(){
@@ -1700,7 +1787,6 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
   window.addEventListener("mouseout",function(){overLink=false;});
 
   window.addEventListener("mousemove",function(e){
-    if(!document.getElementById("terminal").classList.contains("live"))return;
     mx=e.clientX;my=e.clientY;
     window.termMx=mx;window.termMy=my;
     ghosts.push({
@@ -1722,14 +1808,11 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
 
   var termEl=document.getElementById("terminal");
   var obs=new MutationObserver(function(){
-    if(termEl.classList.contains("live")){
-      cv.style.opacity="1";
-      if(!running){running=true;requestAnimationFrame(loop);}
-    } else {
-      cv.style.opacity="0";
-    }
+    cv.style.opacity="1";
+    if(!running){running=true;requestAnimationFrame(loop);}
   });
   obs.observe(termEl,{attributes:true,attributeFilter:["class"]});
+  if(!running){running=true;requestAnimationFrame(loop);}
 
   function drawImperfectGlow(cx,cy,rx,ry,alpha,r,g,b){
     ctx.save();
@@ -1763,6 +1846,11 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
 
   function loop(ts){
     frameN++;
+    if(!document.getElementById("terminal").classList.contains("live")){
+      ctx.clearRect(0,0,cv.width,cv.height);
+      if(running) requestAnimationFrame(loop);
+      return;
+    }
     snapAge++;
     maybeSnap();
     ctx.clearRect(0,0,cv.width,cv.height);
@@ -1845,48 +1933,15 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
       loop._lb+=(linkBoost-loop._lb)*0.12;
       var lb=loop._lb;
 
-      var baseR=18*lb; // smaller base radius
-      var lrx=(liveGlitch?baseR*1.5:baseR)*hazeSkewX;
-      var lry=(liveGlitch?baseR*0.85:baseR*1.1)*hazeSkewY;
-      var glowAlpha=(liveGlitch?0.28:0.11)*Math.min(lb,1.4); // subtle at rest
-
-      // draw with rotation
+      // dot only — pulses on link hover
+      var dotRx=0.9*lb*(0.75+Math.sin(skewT*1.1)*0.28);
+      var dotRy=0.9*lb*(0.75+Math.cos(skewT*0.9)*0.28);
       ctx.save();
       ctx.translate(mx,my);
-      ctx.rotate(hazeRot);
-      drawImperfectGlow(0,0,lrx,lry,glowAlpha,255,255,255);
-      ctx.restore();
-
-      // second offset haze — different rotation phase, smaller
-      var ox=2*lb+Math.sin(skewT*1.3)*3;
-      var oy=-1.5*lb+Math.cos(skewT*0.8)*2.5;
-      var rot2=hazeRot*0.7+0.4;
-      ctx.save();
-      ctx.translate(mx+ox,my+oy);
-      ctx.rotate(rot2);
-      drawImperfectGlow(0,0,10*lb*hazeSkewY,13*lb*hazeSkewX,0.04*Math.min(lb,1.3),236,234,228);
-      ctx.restore();
-
-      // extra bloom ring when over link — softer
-      if(lb>1.2){
-        ctx.save();
-        ctx.translate(mx-2,my+1);
-        ctx.rotate(hazeRot*1.2);
-        drawImperfectGlow(0,0,baseR*1.4*hazeSkewX,baseR*1.1*hazeSkewY,(lb-1.0)*0.08,255,255,240);
-        ctx.restore();
-      }
-
-      // dot — elliptical, slowly morphing
-      var djx=liveGlitch?randBetween(-2,2):0;
-      var djy=liveGlitch?randBetween(-1,1):0;
-      var dotRx=liveGlitch?3.5:(2.5+(lb-1)*1.0)*(0.75+Math.sin(skewT*1.1)*0.28);
-      var dotRy=liveGlitch?3.5:(2.5+(lb-1)*1.0)*(0.75+Math.cos(skewT*0.9)*0.28);
-      ctx.save();
-      ctx.translate(mx+djx,my+djy);
       ctx.rotate(hazeRot*0.5);
       ctx.scale(dotRx/Math.max(dotRy,0.5),1);
       ctx.beginPath();ctx.arc(0,0,Math.max(dotRy,1),0,Math.PI*2);
-      ctx.fillStyle=liveGlitch?"rgba(255,255,255,1)":"rgba(255,255,255,0.85)";
+      ctx.fillStyle="rgba(255,255,255,0.85)";
       ctx.fill();
       ctx.restore();
 
