@@ -124,7 +124,7 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 #main-panel{border-right:1px solid var(--tbdr);overflow:hidden;display:flex;flex-direction:column;background:var(--tbg);}
 #scroll-world{flex:1;overflow-y:auto;position:relative;scrollbar-width:none;}#scroll-world::-webkit-scrollbar{display:none;}
 #scroll-inner{padding:8vh 2.2rem 30vh;max-width:680px;margin:0;}
-.t{display:block;font-family:'Courier New',Courier,monospace;font-size:clamp(11px,1.45vw,17px);line-height:1.2;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;color:var(--tfg);padding:0.2em 0;text-shadow:0 0 6px rgba(236,234,228,0.5),0 0 14px rgba(236,234,228,0.22),0 0 30px rgba(236,234,228,0.08);}
+.t{display:block;font-family:'Courier New',Courier,monospace;font-size:clamp(11px,1.45vw,17px);line-height:1.2;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;color:var(--tfg);padding:0.2em 0;}
 .t.hi{color:var(--thi);font-weight:bold;text-shadow:none;}
 .t.d{color:var(--tdim);text-shadow:0 0 6px rgba(90,90,82,0.4),0 0 14px rgba(90,90,82,0.15);}
 .t.dd{color:#2e2e28;text-shadow:none;}
@@ -169,6 +169,9 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 .ftr-sep{color:var(--tbdr);}
 #ftr-np{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #ftr-np span{color:var(--tdim);}
+#ftr-player{display:contents;}
+#np-play{display:none;} /* hidden until we know what's queued */
+#ftr-np-wrap{overflow:hidden;}
 #np-audio{display:none;}
 #t-clock{color:#2a2a26;margin-left:auto;font-size:.58rem;}
 .ph-right{color:#2a2a26;font-size:.6rem;}
@@ -180,6 +183,8 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
 
 /* ── MOBILE ──────────────────────────────────────────────────────── */
 @media(max-width:768px){
+
+
   /* kill thought bubbles and cursor canvas on mobile */
   #thought-overlay{display:none!important;}
   #ghost-cursor-cv{display:none!important;}
@@ -203,41 +208,60 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
     border-right:none;
   }
 
+
+
   /* header — single line, never wraps */
-  #hdr{padding:0 1rem;gap:.6rem;flex-wrap:nowrap;overflow:hidden;}
-  .hdr-title{font-size:.62rem;letter-spacing:.12em;white-space:nowrap;flex-shrink:0;}
+  #hdr{padding:0 .8rem;gap:.5rem;flex-wrap:nowrap;overflow:hidden;height:36px;}
+  .hdr-title{font-size:.58rem;letter-spacing:.1em;white-space:nowrap;flex-shrink:0;}
   #hdr-clock{display:none;}
-  .hdr-nav-links{gap:.7rem;flex-shrink:0;}
-  .hdr-nav-link{font-size:.52rem;letter-spacing:.08em;white-space:nowrap;}
-  #hub-return{font-size:.52rem;letter-spacing:.08em;white-space:nowrap;flex-shrink:0;}
-  .hdr-sep{display:none;}
   #hdr-path{display:none;}
-  #hdr .hdr-meta:first-child{display:none;}
-  .hdr-right{gap:.6rem;}
+  .hdr-sep{display:none;}
+  /* hide Online dot/text and all hdr-meta labels */
+  .hdr-meta{display:none!important;}
+  /* keep nav links but compact */
+  .hdr-right{gap:.4rem;flex-shrink:0;margin-left:auto;}
+  .hdr-nav-links{gap:.5rem;flex-shrink:0;}
+  .hdr-nav-link{font-size:.5rem;letter-spacing:.06em;white-space:nowrap;}
+  #hub-return{font-size:.5rem;letter-spacing:.06em;white-space:nowrap;flex-shrink:0;}
 
   /* panel header — no wrap */
   .panel-header{padding:.5rem 1.2rem;flex-wrap:nowrap;overflow:hidden;}
   .panel-header span{white-space:nowrap;font-size:.55rem;overflow:hidden;text-overflow:ellipsis;}
 
-  /* scroll content — full width, comfortable padding, larger text */
+  /* scroll content — full width, comfortable padding */
   #scroll-inner{
     padding:6vw 6vw 30vw;
     max-width:100%;
     margin:0;
   }
+  /* uniform text size — no variation between rows */
   .t{
-    font-size:clamp(13px,3.8vw,18px);
+    font-size:clamp(11px,3.2vw,15px);
     white-space:normal;
     word-break:break-word;
-    padding:0.35em 0;
+    padding:0.25em 0;
+    letter-spacing:.08em;
   }
+  .t.hi{
+    font-size:clamp(11px,3.2vw,15px);
+    font-weight:normal;
+    letter-spacing:.12em;
+  }
+  .t.rule{margin:0.4em 0;}
 
-  /* bigger tap targets for clickable rows */
+  /* tap targets — feel like interactive elements */
   .t.cl{
-    padding:0.6em 0;
-    border-bottom:1px solid rgba(255,255,255,0.04);
+    padding:0.7em 0;
+    position:relative;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .t.cl:active{
+    color:var(--thi);
+    text-shadow:0 0 8px rgba(236,234,228,0.6);
   }
   .t.cl:last-child{border-bottom:none;}
+
+
 
   /* footer — now-playing bar, make it readable */
   #ftr{
@@ -247,9 +271,52 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
     height:52px;
     flex-wrap:nowrap;
   }
-  #ftr-np{font-size:.6rem;}
-  #np-stop{font-size:.6rem;padding:.3em .7em;}
+  /* hide path breadcrumb on mobile */
+  #ftr-path{display:none;}
   .ftr-sep{display:none;}
+  /* player row */
+  #ftr-player{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    flex:1;
+    min-width:0;
+  }
+  #np-play,#np-stop{
+    font-size:.75rem;
+    padding:.2em .4em;
+    color:var(--tdim);
+    background:none;
+    border:none;
+    cursor:pointer;
+    flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+    transition:color .15s;
+    display:block;
+    line-height:1;
+  }
+  #np-play:active,#np-stop:active{color:var(--thi);}
+  #np-play.playing{color:var(--thi);text-shadow:0 0 6px rgba(200,196,188,0.8),0 0 16px rgba(200,196,188,0.3);}
+  #ftr-np-wrap{
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+  }
+  #ftr-np{
+    display:inline-block;
+    white-space:nowrap;
+    font-size:.58rem;
+    animation:none;
+  }
+  #ftr-np.scrolling{
+    animation:ftrScroll 8s linear infinite;
+  }
+  @keyframes ftrScroll{
+    0%{transform:translateX(0);}
+    100%{transform:translateX(-50%);}
+  }
+  .np-label{color:var(--tdim);}
+  #ftr-np b{color:var(--thi);}
   #t-clock{display:none;}
 
   /* mini boot — readable on small screen */
@@ -257,15 +324,115 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
   #mini-boot-lines{font-size:clamp(12px,3.5vw,16px);}
 
   /* boot overlay */
-  #boot-ov{padding:6vw 7vw;}
-  #boot-ov-lines{font-size:clamp(11px,3.2vw,15px);}
+  #boot-ov{padding:5vw 5vw;transform:scale(0.82);transform-origin:top left;width:122%;}
+  #boot-ov-lines{font-size:clamp(9px,2.6vw,12px);line-height:1.5;}
+
+  /* arrow — always visible on mobile, no hover needed */
+  .t.cl .arr{opacity:0.4;color:var(--tdim);}
+  .t.cl:active .arr{opacity:1;color:var(--thi);}
+
+  /* expanded song rows — slightly indented */
+  .t.cl.on .arr{opacity:1;}
+  .song-ext{padding-left:1.2em;}
+
+  /* playing state — clear glow */
+  .t.playing{
+    color:var(--thi);
+    text-shadow:0 0 10px rgba(236,234,228,0.5);
+  }
+
+  /* version rows — generous tap area */
+  .t.cl[data-final]{padding:0.65em 0;}
 }
 /* ── END MOBILE ──────────────────────────────────────────────────── */
 
+/* ── CONSTELLATION ───────────────────────────────── */
+#constellation-layer{
+  position:fixed;inset:0;z-index:500;
+  background:#000;
+  opacity:0;pointer-events:none;
+  transition:opacity .6s ease;
+}
+#constellation-layer.open{opacity:1;pointer-events:all;}
+#constellation-cv{position:absolute;inset:0;width:100%;height:100%;cursor:none;}
+#constellation-ui{position:absolute;inset:0;pointer-events:none;}
+#constellation-close{
+  position:absolute;top:16px;right:20px;
+  font-family:'Courier New',monospace;
+  font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--tdim);background:none;border:none;
+  cursor:pointer;pointer-events:all;
+  transition:color .2s;
+  padding:.4em .6em;
+}
+#constellation-close:hover{color:var(--thi);text-shadow:0 0 8px rgba(200,196,188,0.6);}
+#con-info{
+  position:absolute;bottom:48px;left:32px;
+  font-family:'Courier New',monospace;
+  pointer-events:none;
+  opacity:0;transition:opacity .3s;
+  max-width:280px;
+}
+#con-info.visible{opacity:1;}
+#con-info-title{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--thi);margin-bottom:.3em;}
+#con-info-meta{font-size:.55rem;letter-spacing:.1em;color:var(--tdim);margin-bottom:.4em;}
+#con-info-desc{font-size:.55rem;color:var(--tdim);line-height:1.6;font-style:italic;}
+#constellation-btn{
+  display:block;margin-top:.5em;
+  font-family:'Courier New',monospace;
+  font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--tdim);background:none;border:none;cursor:pointer;
+  padding:0;transition:color .2s,text-shadow .2s;
+}
+#constellation-btn:hover{color:var(--thi);text-shadow:0 0 8px rgba(200,196,188,0.5);}
+@media(max-width:768px){
+  #con-info{bottom:80px;left:16px;max-width:220px;}
+  #con-info-title{font-size:.65rem;}
+  #constellation-close{top:10px;right:12px;}
+}
+
+/* chaos btn mobile */
+#chaos-btn-mobile{display:none;}
+@media(max-width:768px){
+  #chaos-btn-mobile{
+    display:block;
+    font-family:'Courier New',monospace;
+    font-size:.55rem;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--thi);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:.5em 1em;
+    white-space:nowrap;
+    -webkit-tap-highlight-color:transparent;
+    transition:color .15s,text-shadow .15s;
+  }
+  #chaos-btn-mobile:active,#chaos-btn-mobile:hover{
+    color:#fff;
+    text-shadow:0 0 8px rgba(255,255,255,0.7),0 0 18px rgba(255,255,255,0.3);
+  }
+  #chaos-btn-mobile.chaos-active{
+    color:rgba(220,90,60,.95);
+    text-shadow:0 0 8px rgba(220,80,50,.7),0 0 20px rgba(200,60,40,.4);
+  }
+}
 </style>
 </head>
 <body>
-<canvas id="memory-flash" style="position:fixed;inset:0;width:100%;height:100%;z-index:450;pointer-events:none;opacity:0;"></canvas>
+<div id="constellation-layer">
+  <canvas id="constellation-cv"></canvas>
+  <div id="constellation-ui">
+    <div id="con-info">
+      <div id="con-info-title"></div>
+      <div id="con-info-meta"></div>
+      <div id="con-info-desc"></div>
+    </div>
+    <button id="constellation-close">[ exit ]</button>
+  </div>
+</div>
+<canvas id="memory-flash" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:450;pointer-events:none;opacity:0;"></canvas>
 <div id="hub">
   <canvas id="hero-canvas"></canvas>
   <canvas id="hub-text-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;"></canvas>
@@ -342,6 +509,7 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
         <div class="ss-head"><span>Mode_Override</span></div>
         <div class="ss-body">
           <button id="chaos-btn">[ Chaos Mode ]</button>
+          <button id="constellation-btn">[ Constellation ]</button>
         </div>
       </div>
       <div class="side-section">
@@ -350,10 +518,14 @@ html,body{width:100%;height:100%;overflow:hidden;cursor:none;user-select:none;fo
       </div>
     </div>
     <div id="ftr">
+        <button id="chaos-btn-mobile">[ Chaos ]</button>
       <span class="ftr-path" id="ftr-path">~/root</span>
       <span class="ftr-sep">|</span>
-      <span id="ftr-np"><span>Now Playing: </span><b id="np-title">--</b></span>
-      <button id="np-stop">[ stop ]</button>
+      <div id="ftr-player">
+        <div id="ftr-np-wrap"><span id="ftr-np"><span class="np-label">Now Playing: </span><b id="np-title">--</b></span></div>
+        <button id="np-play" aria-label="Play/Pause">&#9654;</button>
+        <button id="np-stop" aria-label="Stop">&#9632;</button>
+      </div>
       <span class="ftr-sep">|</span>
       <span id="t-clock"></span>
       <audio id="np-audio"></audio>
@@ -369,16 +541,65 @@ var ALBUMS=[
     {label:"Underdressed",versions:[{label:"Final Master",tag:"FINAL",dur:"3:41"},{label:"Demo Piano",tag:"DEMO",dur:"3:28"}],stems:[{label:"Vocals Dry",tag:"STEM",dur:"3:41"},{label:"Piano",tag:"STEM",dur:"3:41"},{label:"Drums",tag:"STEM",dur:"3:41"}]},
     {label:"Strange Enough",versions:[{label:"Final Master",tag:"FINAL",dur:"3:55"},{label:"Acoustic Demo",tag:"DEMO",dur:"3:48"}],stems:[{label:"Vocals Lead",tag:"STEM",dur:"3:55"},{label:"Guitar",tag:"STEM",dur:"3:55"}]},
     {label:"Weekend",versions:[{label:"Final Master",tag:"FINAL",dur:"3:22"},{label:"V1 Session",tag:"V1",dur:"3:19"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:22"},{label:"Synth Pad",tag:"STEM",dur:"3:22"}]},
-    {label:"New Breed",versions:[{label:"Final Master",tag:"FINAL",dur:"4:01"}],stems:[{label:"Vocals Lead",tag:"STEM",dur:"4:01"},{label:"Production",tag:"STEM",dur:"4:01"}]}]},
+    {label:"New Breed",versions:[{label:"Final Master",tag:"FINAL",dur:"4:01"}],stems:[{label:"Vocals Lead",tag:"STEM",dur:"4:01"},{label:"Production",tag:"STEM",dur:"4:01"}]},
+    {label:"Overflow",versions:[{label:"Final Master",tag:"FINAL",dur:"3:33"},{label:"Early Mix",tag:"DEMO",dur:"3:30"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:33"},{label:"Keys",tag:"STEM",dur:"3:33"}]},
+    {label:"Carry On",versions:[{label:"Final Master",tag:"FINAL",dur:"4:12"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:12"},{label:"Strings",tag:"STEM",dur:"4:12"}]},
+    {label:"Glass Half",versions:[{label:"Final Master",tag:"FINAL",dur:"3:48"},{label:"Demo",tag:"DEMO",dur:"3:44"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:48"},{label:"Guitar",tag:"STEM",dur:"3:48"}]}
+  ]},
   {label:"Interconnected",year:"2018",type:"Album",desc:["The Spiral Tightens.","Patterns Recognized. Not Yet Broken."],songs:[
-    {label:"Phase Me Out",versions:[{label:"Final Master",tag:"FINAL",dur:"3:38"},{label:"Demo",tag:"DEMO",dur:"3:30"},{label:"V3 Pre-Master",tag:"V3",dur:"3:40"}],stems:[{label:"Vocals Dry",tag:"STEM",dur:"3:38"},{label:"Synth Lead",tag:"STEM",dur:"3:38"},{label:"Drum Bus",tag:"STEM",dur:"3:38"}]},
-    {label:"Transit",versions:[{label:"Final Master",tag:"FINAL",dur:"4:12"},{label:"Alt Ending",tag:"ALT",dur:"4:28"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:12"},{label:"Piano",tag:"STEM",dur:"4:12"}]},
-    {label:"Do You Want Me",versions:[{label:"Final Master",tag:"FINAL",dur:"3:50"},{label:"Stripped Demo",tag:"DEMO",dur:"3:44"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:50"},{label:"Backing Vocals",tag:"STEM",dur:"3:50"}]}]},
-  {label:"Forward Motion(s)",year:"2022",type:"Album",desc:["Transcendence Attempted.","The Architecture of Escape is the Architecture of Return."],songs:[
-    {label:"Crash",versions:[{label:"Final Master",tag:"FINAL",dur:"3:29"},{label:"Demo V1",tag:"V1",dur:"3:18"},{label:"Live",tag:"LIVE",dur:"3:35"}],stems:[{label:"Vocals Dry",tag:"STEM",dur:"3:29"},{label:"Guitar",tag:"STEM",dur:"3:29"},{label:"Drums",tag:"STEM",dur:"3:29"}]},
-    {label:"Lift",versions:[{label:"Final Master",tag:"FINAL",dur:"4:05"},{label:"Alt Mix",tag:"ALT",dur:"4:08"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:05"},{label:"Strings",tag:"STEM",dur:"4:05"}]},
-    {label:"Nothing Left to Lose",versions:[{label:"Final Master",tag:"FINAL",dur:"3:58"},{label:"Original Demo",tag:"DEMO",dur:"3:45"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:58"},{label:"Synth Pads",tag:"STEM",dur:"3:58"}]},
-    {label:"17",versions:[{label:"Final Master",tag:"FINAL",dur:"3:14"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:14"},{label:"Production",tag:"STEM",dur:"3:14"}]}]}
+    {label:"Phase Me Out",versions:[{label:"Final Master",tag:"FINAL",dur:"3:58"},{label:"Final Demo",tag:"DEMO",dur:"3:45"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:58"},{label:"Synth Pads",tag:"STEM",dur:"3:58"}]},
+    {label:"Belong",versions:[{label:"Final Master",tag:"FINAL",dur:"4:05"},{label:"Acoustic",tag:"DEMO",dur:"3:58"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:05"},{label:"Guitar",tag:"STEM",dur:"4:05"}]},
+    {label:"Parallels",versions:[{label:"Final Master",tag:"FINAL",dur:"3:44"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:44"},{label:"Synth",tag:"STEM",dur:"3:44"},{label:"Bass",tag:"STEM",dur:"3:44"}]},
+    {label:"Unravel",versions:[{label:"Final Master",tag:"FINAL",dur:"4:22"},{label:"V1",tag:"V1",dur:"4:18"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:22"},{label:"Production",tag:"STEM",dur:"4:22"}]},
+    {label:"Pull",versions:[{label:"Final Master",tag:"FINAL",dur:"3:15"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:15"},{label:"Keys",tag:"STEM",dur:"3:15"}]},
+    {label:"17",versions:[{label:"Final Master",tag:"FINAL",dur:"3:14"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:14"},{label:"Production",tag:"STEM",dur:"3:14"}]},
+    {label:"Signal",versions:[{label:"Final Master",tag:"FINAL",dur:"3:51"},{label:"Alt Mix",tag:"ALT",dur:"3:49"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:51"},{label:"Synth",tag:"STEM",dur:"3:51"}]}
+  ]},
+  {label:"Forward Motion(s)",year:"2022",type:"Album",desc:["The Break. The Rebuild.","Learning to Move Without a Map."],songs:[
+    {label:"Begin Again",versions:[{label:"Final Master",tag:"FINAL",dur:"4:02"},{label:"Session Demo",tag:"DEMO",dur:"3:55"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:02"},{label:"Guitar",tag:"STEM",dur:"4:02"},{label:"Drums",tag:"STEM",dur:"4:02"}]},
+    {label:"Loose Ends",versions:[{label:"Final Master",tag:"FINAL",dur:"3:38"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:38"},{label:"Piano",tag:"STEM",dur:"3:38"}]},
+    {label:"Weightless",versions:[{label:"Final Master",tag:"FINAL",dur:"4:18"},{label:"V2 Mix",tag:"V2",dur:"4:14"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:18"},{label:"Strings",tag:"STEM",dur:"4:18"},{label:"Bass",tag:"STEM",dur:"4:18"}]},
+    {label:"Distance",versions:[{label:"Final Master",tag:"FINAL",dur:"3:29"},{label:"Demo",tag:"DEMO",dur:"3:25"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:29"},{label:"Keys",tag:"STEM",dur:"3:29"}]},
+    {label:"Anchor",versions:[{label:"Final Master",tag:"FINAL",dur:"3:55"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:55"},{label:"Guitar",tag:"STEM",dur:"3:55"}]},
+    {label:"Open Water",versions:[{label:"Final Master",tag:"FINAL",dur:"4:33"},{label:"Early Mix",tag:"DEMO",dur:"4:28"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:33"},{label:"Synth",tag:"STEM",dur:"4:33"},{label:"Drums",tag:"STEM",dur:"4:33"}]},
+    {label:"Meridian",versions:[{label:"Final Master",tag:"FINAL",dur:"3:47"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:47"},{label:"Production",tag:"STEM",dur:"3:47"}]}
+  ]},
+  {label:"Undertow",year:"2019",type:"Single",desc:["Between Albums. A Pause That Spoke."],songs:[
+    {label:"Undertow",versions:[{label:"Final Master",tag:"FINAL",dur:"3:52"},{label:"Demo",tag:"DEMO",dur:"3:48"},{label:"Stripped",tag:"ALT",dur:"3:41"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:52"},{label:"Guitar",tag:"STEM",dur:"3:52"},{label:"Bass",tag:"STEM",dur:"3:52"}]},
+    {label:"Undertow (Reprise)",versions:[{label:"Final Master",tag:"FINAL",dur:"1:48"}],stems:[{label:"Vocals",tag:"STEM",dur:"1:48"},{label:"Piano",tag:"STEM",dur:"1:48"}]},
+    {label:"Drift",versions:[{label:"Final Master",tag:"FINAL",dur:"3:22"},{label:"Alt Version",tag:"ALT",dur:"3:19"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:22"},{label:"Synth",tag:"STEM",dur:"3:22"}]},
+    {label:"Hold Pattern",versions:[{label:"Final Master",tag:"FINAL",dur:"4:08"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:08"},{label:"Keys",tag:"STEM",dur:"4:08"}]},
+    {label:"Scatter",versions:[{label:"Final Master",tag:"FINAL",dur:"3:35"},{label:"Demo",tag:"DEMO",dur:"3:30"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:35"},{label:"Guitar",tag:"STEM",dur:"3:35"}]},
+    {label:"Still",versions:[{label:"Final Master",tag:"FINAL",dur:"3:18"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:18"},{label:"Piano",tag:"STEM",dur:"3:18"}]},
+    {label:"Low Tide",versions:[{label:"Final Master",tag:"FINAL",dur:"3:44"},{label:"Session Take",tag:"DEMO",dur:"3:40"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:44"},{label:"Guitar",tag:"STEM",dur:"3:44"},{label:"Strings",tag:"STEM",dur:"3:44"}]}
+  ]},
+  {label:"Half Light",year:"2020",type:"EP",desc:["Isolation. Frequencies Found in Silence."],songs:[
+    {label:"Half Light",versions:[{label:"Final Master",tag:"FINAL",dur:"4:01"},{label:"Demo",tag:"DEMO",dur:"3:55"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:01"},{label:"Synth",tag:"STEM",dur:"4:01"},{label:"Drums",tag:"STEM",dur:"4:01"}]},
+    {label:"Residue",versions:[{label:"Final Master",tag:"FINAL",dur:"3:28"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:28"},{label:"Guitar",tag:"STEM",dur:"3:28"}]},
+    {label:"Frequency",versions:[{label:"Final Master",tag:"FINAL",dur:"3:55"},{label:"V1",tag:"V1",dur:"3:50"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"3:55"},{label:"Production",tag:"STEM",dur:"3:55"}]},
+    {label:"Dim",versions:[{label:"Final Master",tag:"FINAL",dur:"3:12"},{label:"Piano Demo",tag:"DEMO",dur:"3:08"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:12"},{label:"Piano",tag:"STEM",dur:"3:12"}]},
+    {label:"Room Tone",versions:[{label:"Final Master",tag:"FINAL",dur:"2:58"}],stems:[{label:"Vocals",tag:"STEM",dur:"2:58"},{label:"Ambient",tag:"STEM",dur:"2:58"}]},
+    {label:"North",versions:[{label:"Final Master",tag:"FINAL",dur:"3:44"},{label:"Demo",tag:"DEMO",dur:"3:40"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:44"},{label:"Synth",tag:"STEM",dur:"3:44"}]},
+    {label:"Last Light",versions:[{label:"Final Master",tag:"FINAL",dur:"4:20"},{label:"Alt Mix",tag:"ALT",dur:"4:15"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:20"},{label:"Strings",tag:"STEM",dur:"4:20"},{label:"Piano",tag:"STEM",dur:"4:20"}]}
+  ]},
+  {label:"Silt",year:"2021",type:"EP",desc:["Sediment of a Year. What Settles."],songs:[
+    {label:"Silt",versions:[{label:"Final Master",tag:"FINAL",dur:"3:38"},{label:"Demo",tag:"DEMO",dur:"3:33"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:38"},{label:"Guitar",tag:"STEM",dur:"3:38"},{label:"Bass",tag:"STEM",dur:"3:38"}]},
+    {label:"Layer",versions:[{label:"Final Master",tag:"FINAL",dur:"3:22"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:22"},{label:"Keys",tag:"STEM",dur:"3:22"}]},
+    {label:"Press",versions:[{label:"Final Master",tag:"FINAL",dur:"4:05"},{label:"V2",tag:"V2",dur:"4:01"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"4:05"},{label:"Synth",tag:"STEM",dur:"4:05"}]},
+    {label:"Compound",versions:[{label:"Final Master",tag:"FINAL",dur:"3:49"},{label:"Demo",tag:"DEMO",dur:"3:44"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:49"},{label:"Production",tag:"STEM",dur:"3:49"}]},
+    {label:"Erosion",versions:[{label:"Final Master",tag:"FINAL",dur:"3:15"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:15"},{label:"Piano",tag:"STEM",dur:"3:15"}]},
+    {label:"Settle",versions:[{label:"Final Master",tag:"FINAL",dur:"3:58"},{label:"Alt",tag:"ALT",dur:"3:54"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:58"},{label:"Guitar",tag:"STEM",dur:"3:58"}]},
+    {label:"Ground",versions:[{label:"Final Master",tag:"FINAL",dur:"4:14"},{label:"Session",tag:"DEMO",dur:"4:10"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"4:14"},{label:"Strings",tag:"STEM",dur:"4:14"},{label:"Drums",tag:"STEM",dur:"4:14"}]}
+  ]},
+  {label:"Threshold",year:"2023",type:"Album",desc:["The Edge Before the Next.","Standing in the Doorway of What Comes."],songs:[
+    {label:"Threshold",versions:[{label:"Final Master",tag:"FINAL",dur:"4:28"},{label:"Demo",tag:"DEMO",dur:"4:22"},{label:"Acoustic",tag:"ALT",dur:"4:15"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:28"},{label:"Guitar",tag:"STEM",dur:"4:28"},{label:"Drums",tag:"STEM",dur:"4:28"},{label:"Strings",tag:"STEM",dur:"4:28"}]},
+    {label:"On the Verge",versions:[{label:"Final Master",tag:"FINAL",dur:"3:55"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:55"},{label:"Synth",tag:"STEM",dur:"3:55"}]},
+    {label:"Breaking Point",versions:[{label:"Final Master",tag:"FINAL",dur:"4:11"},{label:"V1",tag:"V1",dur:"4:06"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"4:11"},{label:"Production",tag:"STEM",dur:"4:11"},{label:"Bass",tag:"STEM",dur:"4:11"}]},
+    {label:"Liminal",versions:[{label:"Final Master",tag:"FINAL",dur:"3:42"},{label:"Demo",tag:"DEMO",dur:"3:38"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:42"},{label:"Piano",tag:"STEM",dur:"3:42"}]},
+    {label:"Crossing",versions:[{label:"Final Master",tag:"FINAL",dur:"3:28"}],stems:[{label:"Vocals",tag:"STEM",dur:"3:28"},{label:"Guitar",tag:"STEM",dur:"3:28"}]},
+    {label:"No Return",versions:[{label:"Final Master",tag:"FINAL",dur:"4:02"},{label:"Alt Mix",tag:"ALT",dur:"3:58"}],stems:[{label:"Vocals",tag:"STEM",dur:"4:02"},{label:"Synth",tag:"STEM",dur:"4:02"},{label:"Strings",tag:"STEM",dur:"4:02"}]},
+    {label:"After",versions:[{label:"Final Master",tag:"FINAL",dur:"5:12"},{label:"Demo",tag:"DEMO",dur:"5:05"}],stems:[{label:"Lead Vocals",tag:"STEM",dur:"5:12"},{label:"Piano",tag:"STEM",dur:"5:12"},{label:"Strings",tag:"STEM",dur:"5:12"}]}
+  ]}
 ];
 
 var GC="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_+-=[]{}|<>/?~";
@@ -786,6 +1007,7 @@ function drawDis(){
     doMemoryFlash(function(){
       document.getElementById("hub").classList.add("gone");
       document.getElementById("terminal").classList.add("live");
+      document.body.classList.add("terminal-live");
       document.getElementById("main-panel").classList.add("booting");
       document.getElementById("side-panel").classList.add("booting");
       var _ov=document.getElementById("thought-overlay");
@@ -880,16 +1102,14 @@ function doMemoryFlash(cb){
   }
 
   function runFlash(){
-    var timings=[
-      {img:0, onDur:50,  offDur:30},
-      {img:1, onDur:45,  offDur:35},
-      {img:2, onDur:55,  offDur:25},
-      {img:3, onDur:50,  offDur:30},
-      {img:0, onDur:50,  offDur:30},
-      {img:1, onDur:45,  offDur:35},
-      {img:2, onDur:55,  offDur:25},
-      {img:3, onDur:50,  offDur:0},
-    ];
+    // cycle all images (cap at 5), shuffled
+    var idxs=[];
+    for(var i=0;i<Math.min(loaded.length,5);i++) idxs.push(i);
+    idxs.sort(function(){return Math.random()-0.5;});
+    var timings=[];
+    idxs.forEach(function(img,i){
+      timings.push({img:img, onDur:50+Math.floor(Math.random()*15), offDur:i<idxs.length-1?28:0});
+    });
     var total=0;
     timings.forEach(function(t){
       setTimeout(function(){
@@ -905,6 +1125,40 @@ function doMemoryFlash(cb){
     });
     setTimeout(function(){ctx.clearRect(0,0,cv.width,cv.height);cb();},total+80);
   }
+}
+
+function doSingleFlash(cb){
+  var cv=document.getElementById("memory-flash");
+  var ctx=cv.getContext("2d");
+  cv.width=window.innerWidth;cv.height=window.innerHeight;
+  var pick=Math.floor(Math.random()*FLASH_IMGS.length);
+  var img=new Image();
+  img.onload=function(){
+    function drawGlitchy(){
+      var W=cv.width,H=cv.height;
+      ctx.clearRect(0,0,W,H);
+      var iw=img.naturalWidth,ih=img.naturalHeight;
+      var ir=iw/ih,cr=W/H,sw,sh,sx,sy;
+      if(cr>ir){sw=iw;sh=sw/cr;sx=0;sy=(ih-sh)*0.5;}
+      else{sh=ih;sw=sh*cr;sx=(iw-sw)*0.5;sy=0;}
+      var sliceH=Math.max(1,Math.floor(H/220));
+      for(var y=0;y<H;y+=sliceH){
+        var drift=(Math.random()<0.08)?(Math.random()-0.5)*5:0;
+        ctx.save();ctx.translate(drift,0);
+        ctx.drawImage(img,sx,sy+(y/H)*sh,sw,(sliceH/H)*sh,0,y,W,sliceH+1);
+        ctx.restore();
+      }
+    }
+    drawGlitchy();
+    cv.style.transition="opacity 0.03s";
+    cv.style.opacity="1";
+    setTimeout(function(){
+      cv.style.transition="opacity 0.1s";
+      cv.style.opacity="0";
+      setTimeout(function(){ctx.clearRect(0,0,cv.width,cv.height);cb&&cb();},120);
+    },80);
+  };
+  img.src=FLASH_IMGS[pick];
 }
 
 function doCenterFlash(){
@@ -946,11 +1200,13 @@ function startBootOv(){
     },1200);
   },2200);
 }
-document.getElementById("chaos-btn").addEventListener("click",function(){
+window.runChaos=function(){
   var btn=document.getElementById("chaos-btn");
-  if(btn.classList.contains("chaos-active"))return; // already running, ignore
-  btn.classList.add("chaos-active");
-  btn.textContent="[ Possessed... ]";
+  var btnM=document.getElementById("chaos-btn-mobile");
+  if((btn&&btn.classList.contains("chaos-active"))||(btnM&&btnM.classList.contains("chaos-active")))return;
+  if(!document.getElementById("terminal").classList.contains("live"))return;
+  if(btn){btn.classList.add("chaos-active");btn.textContent="[ Possessed... ]";}
+  if(btnM){btnM.classList.add("chaos-active");btnM.textContent="[ Possessed... ]";}
   window.chaosRunning=true;
 
   // ── collect versions + demos only (no stems) ──
@@ -1117,8 +1373,8 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
 
   function endChaos(){
     window.chaosRunning=false;
-    btn.classList.remove("chaos-active");
-    btn.textContent="[ Chaos Mode ]";
+    if(btn){btn.classList.remove("chaos-active");btn.textContent="[ Chaos Mode ]";}
+    if(btnM){btnM.classList.remove("chaos-active");btnM.textContent="[ Chaos ]";}
     if(chaosRaf) cancelAnimationFrame(chaosRaf);
     if(stepTimeout) clearTimeout(stepTimeout);
     chaosGhosts=[];
@@ -1230,21 +1486,18 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
         }
         if(p<1){ requestAnimationFrame(runFade); }
         else {
-          // phase 2: white flash — full screen white for 2 frames then hard cut
-          ctx.fillStyle="rgba(245,243,238,1)";
-          ctx.fillRect(0,0,cv.width,cv.height);
+          // phase 2: image strobe flash — doMemoryFlash then hard cut
           term.style.opacity="0";
-          // ghost canvas stays visible — don't touch it
-          setTimeout(function(){
-            ctx.clearRect(0,0,cv.width,cv.height);
-            cv.style.zIndex=""; cv.style.opacity="";
+          ctx.clearRect(0,0,cv.width,cv.height);
+          cv.style.zIndex=""; cv.style.opacity="";
+          doSingleFlash(function(){
             term.style.transition=""; term.style.opacity="";
             window.chaosRunning=false;
             if(chaosRaf) cancelAnimationFrame(chaosRaf);
             chaosGhosts=[]; clickBursts=[];
             showRoot();
             cb&&cb();
-          }, 80);
+          });
         }
       };
       requestAnimationFrame(runFade);
@@ -1430,6 +1683,7 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
         // ensure terminal is visible
         if(!term.classList.contains("live")){
           term.classList.add("live");
+          document.body.classList.add("terminal-live");
           document.getElementById("hub").classList.add("gone");
         }
         showRoot();
@@ -1440,7 +1694,12 @@ document.getElementById("chaos-btn").addEventListener("click",function(){
       }
     }
   },200);
-})
+};
+document.getElementById("chaos-btn")&&document.getElementById("chaos-btn").addEventListener("click",window.runChaos);
+
+// ── MOBILE CHAOS BTN ──
+document.getElementById("chaos-btn-mobile")&&document.getElementById("chaos-btn-mobile").addEventListener("click",function(){window.runChaos&&window.runChaos();});
+
 document.getElementById("tour-btn").addEventListener("click",function(){document.getElementById("tour-panel").classList.toggle("open");});
 document.getElementById("tour-close").addEventListener("click",function(){document.getElementById("tour-panel").classList.remove("open");});
 document.getElementById("hub-return").addEventListener("click",function(){
@@ -1508,6 +1767,7 @@ document.getElementById("hub-return").addEventListener("click",function(){
         term.style.transition="";
         term.style.opacity="";
         term.classList.remove("live");
+        document.body.classList.remove("terminal-live");
         document.getElementById("hub").classList.remove("gone");
         document.getElementById("main-panel").classList.add("booting");
         document.getElementById("side-panel").classList.add("booting");
@@ -1598,7 +1858,30 @@ function showRoot(){
 function openAlbum(album){wipe();document.getElementById("hdr-path").textContent=album.label;document.getElementById("ftr-path").textContent="~/"+album.label;document.getElementById("ph-label").textContent=album.label;document.getElementById("ph-right").textContent=album.year+" / "+album.type;setLoc(album.label,null,null);log("open "+album.label);mkSp(1);mkT(album.label,"hi");mkT(album.year+"  "+album.type,"d");mkSp(2);album.desc.forEach(function(d){mkT(d,"d");});mkSp(2);mkRl();mkT("Tracklist ["+album.songs.length+"]","d");mkRl();mkSp(1);album.songs.forEach(function(s,idx){(function(song,i){var row=mkT(String(i+1).padStart(2,"0")+".  "+song.label+"  ["+song.versions.length+"v / "+song.stems.length+"s]","",function(){toggleSong(song,album,row,xEl);});var xEl=document.createElement("div");xEl.dataset.open="0";si.appendChild(xEl);})(s,idx);});mkSp(3);mkRl();mkT("../ Back to Discography","d",function(){miniBootThen("root","",function(){showRoot();});});mkSp(8);setTimeout(function(){recalc();revealAll();},30);}
 function toggleSong(song,album,row,xEl){if(xEl.dataset.open==="1"){xEl.innerHTML="";xEl.dataset.open="0";row.classList.remove("on");setLoc(album.label,null,null);log("close "+song.label);recalc();return;}document.querySelectorAll("[data-open='1']").forEach(function(el){el.innerHTML="";el.dataset.open="0";});document.querySelectorAll(".t.cl.on").forEach(function(el){el.classList.remove("on");});row.classList.add("on");xEl.dataset.open="1";setLoc(album.label,song.label,null);log("expand "+song.label);function iT(text,cls,onClick){var el=document.createElement("span");el.className="t "+(cls||"");el.dataset.final=text;el.textContent=text;if(onClick){el.classList.add("cl");var a=document.createElement("span");a.className="arr";a.textContent=" >";el.appendChild(a);el._clkHandler=onClick;el.addEventListener("mousedown",function(e){e.stopPropagation();});el.addEventListener("click",function(e){e.stopPropagation();onClick(el);});}xEl.appendChild(el);return el;}function iSp(){var e=document.createElement("span");e.className="t sp";xEl.appendChild(e);}function iRl(){var e=document.createElement("span");e.className="t rule";e.textContent="-".repeat(80);xEl.appendChild(e);}iSp();iRl();iT("  Versions ["+song.versions.length+"]","d");iRl();iSp();song.versions.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();iRl();iT("  Stems ["+song.stems.length+"]","d");iRl();iSp();song.stems.forEach(function(f,i){(function(file,n){iT("  "+String(n+1).padStart(2,"0")+".  "+file.label+"  ["+file.tag+"]  "+file.dur,"",function(el){doPlay(el,file,song,album);});})(f,i);});iSp();var els=xEl.querySelectorAll(".t:not(.sp):not(.rule)"),delay=0;els.forEach(function(el){var fin=el.dataset.final;if(!fin)return;el.textContent=fin.replace(/[^ ]/g,function(){return rc();});(function(e,f){setTimeout(function(){glitchReveal(e,f,160);},delay);})(el,fin);delay+=20;});setTimeout(recalc,50);}
 var npAudio=document.getElementById("np-audio");
-function doPlay(el,file,song,album){log("play "+file.label);setLoc(album.label,song.label,file.label+" ["+file.tag+"]");if(playEl)playEl.classList.remove("playing");if(playEl===el){playEl=null;npAudio.pause();document.getElementById("np-title").textContent="--";document.getElementById("pb-status").textContent="Idle";return;}playEl=el;el.classList.add("playing");document.getElementById("np-title").textContent=song.label+" / "+file.label;document.getElementById("pb-status").textContent="Active";if(file.src&&file.src!==""){
+function doPlay(el,file,song,album){log("play "+file.label);setLoc(album.label,song.label,file.label+" ["+file.tag+"]");if(playEl)playEl.classList.remove("playing");if(playEl===el&&el!==null){playEl=null;npAudio.pause();
+  document.getElementById("np-title").textContent="--";
+  var pb=document.getElementById("np-play");
+  if(pb){pb.innerHTML="&#9654;";pb.classList.remove("playing");}
+  var span=document.getElementById("ftr-np");
+  if(span){span.classList.remove("scrolling");span.innerHTML='<span class="np-label">Now Playing: </span><b id="np-title">--</b>';}document.getElementById("pb-status").textContent="Idle";return;}playEl=el;if(el)el.classList.add("playing");document.getElementById("np-title").textContent=song.label+" / "+file.label;
+  // update play btn state
+  var pb=document.getElementById("np-play");
+  if(pb){pb.innerHTML="&#9646;&#9646;";pb.classList.add("playing");}
+  // start marquee scroll if title overflows
+  (function(){
+    var wrap=document.getElementById("ftr-np-wrap");
+    var span=document.getElementById("ftr-np");
+    if(!wrap||!span)return;
+    span.classList.remove("scrolling");
+    setTimeout(function(){
+      if(span.scrollWidth>wrap.offsetWidth+4){
+        // duplicate content for seamless loop
+        var orig=span.innerHTML;
+        span.innerHTML=orig+"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"+orig;
+        span.classList.add("scrolling");
+      }
+    },100);
+  })();document.getElementById("pb-status").textContent="Active";if(file.src&&file.src!==""){
     npAudio.src=file.src;
     npAudio.play().catch(function(){});
   } else {
@@ -1607,7 +1890,48 @@ function doPlay(el,file,song,album){log("play "+file.label);setLoc(album.label,s
     document.getElementById("pb-status").textContent="Active";
   }
 }
-document.getElementById("np-stop").addEventListener("click",function(){if(playEl)playEl.classList.remove("playing");playEl=null;npAudio.pause();document.getElementById("np-title").textContent="--";document.getElementById("pb-status").textContent="Idle";});
+document.getElementById("np-play").addEventListener("click",function(){
+  if(playEl){
+    // toggle: if paused resume, if playing pause
+    if(npAudio.paused){
+      npAudio.play().catch(function(){});
+      document.getElementById("np-play").textContent="[ pause ]";
+      document.getElementById("np-play").classList.add("playing");
+    } else {
+      npAudio.pause();
+      document.getElementById("np-play").textContent="[ play ]";
+      document.getElementById("np-play").classList.remove("playing");
+    }
+  }
+});
+document.getElementById("np-play").addEventListener("click",function(){
+  if(playEl){
+    if(npAudio.paused){
+      npAudio.play().catch(function(){});
+      this.innerHTML="&#9646;&#9646;";this.classList.add("playing");
+    } else {
+      npAudio.pause();
+      this.innerHTML="&#9654;";this.classList.remove("playing");
+    }
+  }
+});
+document.getElementById("np-play").addEventListener("click",function(){
+  if(playEl){
+    if(npAudio.paused){
+      npAudio.play().catch(function(){});
+      this.innerHTML="&#9646;&#9646;";this.classList.add("playing");
+    } else {
+      npAudio.pause();
+      this.innerHTML="&#9654;";this.classList.remove("playing");
+    }
+  }
+});
+document.getElementById("np-stop").addEventListener("click",function(){if(playEl)playEl.classList.remove("playing");playEl=null;npAudio.pause();
+  document.getElementById("np-title").textContent="--";
+  var pb=document.getElementById("np-play");
+  if(pb){pb.innerHTML="&#9654;";pb.classList.remove("playing");}
+  var span=document.getElementById("ftr-np");
+  if(span){span.classList.remove("scrolling");span.innerHTML='<span class="np-label">Now Playing: </span><b id="np-title">--</b>';}document.getElementById("pb-status").textContent="Idle";});
 function tick(){var s=new Date().toISOString().replace("T"," ").substring(0,19)+" UTC";document.getElementById("hdr-clock").textContent=s;document.getElementById("t-clock").textContent=s;}
 tick();setInterval(tick,1000);
 var NOISE=["Scanning Index...","Checksum OK","Heartbeat","Cache Refresh","Verify Stems...","Sector Read","Buffer Clear"];
@@ -1751,6 +2075,332 @@ setInterval(function(){log(NOISE[Math.floor(Math.random()*NOISE.length)]);},3400
   preloadAll(getAllSrcs(),function(){waitAndStart();});
 })();
 /* ── END THOUGHT BUBBLES ─────────────────────────────────────────── */
+
+// ── CONSTELLATION MODE 3D ────────────────────────────────────────────────────
+(function(){
+
+var layer  = document.getElementById('constellation-layer');
+var cv     = document.getElementById('constellation-cv');
+var ctx    = cv.getContext('2d');
+var info   = document.getElementById('con-info');
+var infoT  = document.getElementById('con-info-title');
+var infoM  = document.getElementById('con-info-meta');
+var infoD  = document.getElementById('con-info-desc');
+
+var W,H,dpr,raf;
+var isOpen=false,t=0,mx=-999,my=-999;
+
+var cam={rotY:0,rotYTarget:0,rotX:0.48,rotXTarget:0.48,autoSpin:true,spinSpeed:0.00020,fov:900,dragging:false,dragX:0,dragY:0};
+var view={scale:2.0,scaleT:2.0,offX:0,offY:0,offXT:0,offYT:0};
+var state={level:'galaxy',focusAlbum:null,focusSong:null};
+var transLock=false,focusNode=null;
+var albumNodes=[],songNodes=[],fileNodes=[];
+var particles=[],coreParticles=[],bgStars=[];
+var cursorNode=null,cursorR=2.5,_trailBufs={};
+
+// ── STAMPS ──────────────────────────────────────────────────────────────────
+var STAMPS=[];
+function bakeStamps(){
+  STAMPS=[];
+  [1,2,4,7,12,20,32].forEach(function(sz){
+    var dim=sz*2+4,oc=document.createElement('canvas');
+    oc.width=dim;oc.height=dim;
+    var c2=oc.getContext('2d'),cx=dim/2;
+    var g=c2.createRadialGradient(cx,cx,0,cx,cx,sz);
+    g.addColorStop(0,'rgba(255,253,248,1)');
+    g.addColorStop(0.10,'rgba(248,245,238,0.92)');
+    g.addColorStop(0.28,'rgba(232,229,218,0.48)');
+    g.addColorStop(0.58,'rgba(210,207,196,0.12)');
+    g.addColorStop(0.85,'rgba(192,190,181,0.02)');
+    g.addColorStop(1,'rgba(180,178,169,0)');
+    c2.fillStyle=g;c2.beginPath();c2.arc(cx,cx,sz,0,Math.PI*2);c2.fill();
+    STAMPS.push({c:oc,sz:sz,dim:dim});
+  });
+}
+function ds(x,y,r,a){
+  if(a<0.004||r<0.05)return;
+  var st=STAMPS[0];
+  for(var i=1;i<STAMPS.length;i++){if(STAMPS[i].sz<=r*1.6)st=STAMPS[i];else break;}
+  var sc=r/st.sz,d=st.dim*sc;
+  ctx.globalAlpha=a;ctx.drawImage(st.c,x-d/2,y-d/2,d,d);ctx.globalAlpha=1;
+}
+function db(x,y,r,a,spk){
+  ds(x,y,r,a);
+  if(spk>0&&a>0.04){
+    ctx.save();
+    ctx.globalAlpha=a*0.16;ctx.strokeStyle='rgba(248,245,237,1)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(x-spk,y);ctx.lineTo(x+spk,y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x,y-spk);ctx.lineTo(x,y+spk);ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ── 3D ──────────────────────────────────────────────────────────────────────
+function rot(x,y,z,rx,ry){
+  var cy=Math.cos(ry),sy=Math.sin(ry),x2=x*cy+z*sy,z2=-x*sy+z*cy;
+  var cx=Math.cos(rx),sx=Math.sin(rx);
+  return{x:x2,y:y*cx-z2*sx,z:y*sx+z2*cx};
+}
+function proj(p){
+  var s=cam.fov/(cam.fov+p.z+700);
+  return{sx:W/2+p.x*s*view.scale+view.offX,sy:H/2+p.y*s*view.scale+view.offY,z:p.z,s:Math.max(s,0.001)};
+}
+
+var SA=22,SB=0.38;
+function spt(arm,tp){
+  var theta=tp+(arm/2)*Math.PI,r=SA*Math.exp(SB*tp);
+  return{x:r*Math.cos(theta),z:r*Math.sin(theta),r:r,theta:theta};
+}
+
+// ── BUILD ────────────────────────────────────────────────────────────────────
+function buildGalaxy(){
+  albumNodes=[];songNodes=[];fileNodes=[];
+  particles=[];coreParticles=[];bgStars=[];_trailBufs={};
+
+  var T=9.0;
+
+  // spiral arms removed
+
+  // ── ALBUMS on arms ────────────────────────────────────────────────────────
+  var spots=[{arm:0,t:0.8},{arm:1,t:1.4},{arm:0,t:2.0},{arm:1,t:2.7},{arm:0,t:3.4},{arm:1,t:4.2},{arm:0,t:5.0}];
+  ALBUMS.forEach(function(album,ai){
+    var sp=spt(spots[ai].arm,spots[ai].t);
+    var an={type:'album',data:album,bx:sp.x,by:0,bz:sp.z,x:0,y:0,z:0,r:5.5,glow:0,label:album.label,sublabel:album.year+' · '+album.type,songNodes:[],id:'a'+ai};
+    albumNodes.push(an);
+    album.songs.forEach(function(song,si){
+      var sn={type:'song',data:song,album:album,albumNode:an,bx:an.bx,by:an.by,bz:an.bz,orbitAng:(si/album.songs.length)*Math.PI*2+ai*1.3,orbitR:55+si*10,orbitTilt:0.18+Math.random()*0.48,orbitSpeed:(0.07+Math.random()*0.06)*(Math.random()<0.5?1:-1),x:0,y:0,z:0,r:2.6,glow:0,label:song.label,fileNodes:[],visible:true,visAlpha:0,id:'s'+ai+'-'+si};
+      var allFiles=(song.versions||[]).slice();
+      if((song.stems||[]).length)allFiles.push({label:'Stems ('+(song.stems.length)+')',tag:'STEM',isStemFolder:true,stems:song.stems,dur:''});
+      allFiles.forEach(function(file,fi){
+        var fn={type:'file',data:file,song:song,album:album,songNode:sn,orbitAng:(fi/allFiles.length)*Math.PI*2+si*0.8,orbitR:22+fi*6,orbitTilt:0.1+Math.random()*1.0,orbitSpeed:(0.15+Math.random()*0.20)*(Math.random()<0.5?1:-1),x:0,y:0,z:0,r:file.isStemFolder?1.8:1.2,glow:0,label:file.label,tag:file.tag||'',visible:false,visAlpha:0,played:false,id:'f'+ai+'-'+si+'-'+fi};
+        sn.fileNodes.push(fn);fileNodes.push(fn);
+      });
+      an.songNodes.push(sn);songNodes.push(sn);
+    });
+  });
+}
+
+// ── UPDATE ───────────────────────────────────────────────────────────────────
+function updatePositions(){
+  var rx=cam.rotX,ry=cam.rotY,spin=cam.autoSpin;
+
+
+  albumNodes.forEach(function(an){var p=rot(an.bx,an.by,an.bz,rx,ry);an.x=p.x;an.y=p.y;an.z=p.z;});
+  songNodes.forEach(function(sn){
+    if(spin)sn.orbitAng+=sn.orbitSpeed*0.016;
+    var lx=Math.cos(sn.orbitAng)*sn.orbitR,ly=Math.sin(sn.orbitAng)*sn.orbitR*Math.cos(sn.orbitTilt),lz=Math.sin(sn.orbitAng)*sn.orbitR*Math.sin(sn.orbitTilt);
+    var p=rot(sn.bx+lx,sn.by+ly,sn.bz+lz,rx,ry);sn.x=p.x;sn.y=p.y;sn.z=p.z;
+    sn.visAlpha+=sn.visible?Math.min((1-sn.visAlpha)*0.07,0.05):-(sn.visAlpha*0.09);
+    sn.visAlpha=Math.max(0,Math.min(1,sn.visAlpha));
+  });
+  fileNodes.forEach(function(fn){
+    if(fn.visible)fn.orbitAng+=fn.orbitSpeed*0.016;
+    var sn=fn.songNode;
+    var lx=Math.cos(sn.orbitAng)*sn.orbitR,ly=Math.sin(sn.orbitAng)*sn.orbitR*Math.cos(sn.orbitTilt),lz=Math.sin(sn.orbitAng)*sn.orbitR*Math.sin(sn.orbitTilt);
+    var flx=Math.cos(fn.orbitAng)*fn.orbitR,fly=Math.sin(fn.orbitAng)*fn.orbitR*Math.cos(fn.orbitTilt),flz=Math.sin(fn.orbitAng)*fn.orbitR*Math.sin(fn.orbitTilt);
+    var p=rot(sn.bx+lx+flx,sn.by+ly+fly,sn.bz+lz+flz,rx,ry);fn.x=p.x;fn.y=p.y;fn.z=p.z;
+    fn.visAlpha+=fn.visible?Math.min((1-fn.visAlpha)*0.08,0.055):-(fn.visAlpha*0.1);
+    fn.visAlpha=Math.max(0,Math.min(1,fn.visAlpha));
+  });
+  if(focusNode){
+    var fp=proj({x:focusNode.x,y:focusNode.y,z:focusNode.z});
+    view.offXT=W/2-(fp.sx-view.offX);view.offYT=H/2-(fp.sy-view.offY);
+  }
+}
+
+// ── TRAILS ───────────────────────────────────────────────────────────────────
+function uTrail(id,sx,sy,max){if(!_trailBufs[id])_trailBufs[id]=[];_trailBufs[id].push({x:sx,y:sy});if(_trailBufs[id].length>max)_trailBufs[id].shift();}
+function dTrail(id,alpha,col){
+  var buf=_trailBufs[id];if(!buf||buf.length<2)return;
+  ctx.save();
+  for(var i=1;i<buf.length;i++){
+    var frac=i/buf.length;
+    // Fade + taper toward tail: older = more transparent + thinner
+    ctx.globalAlpha=alpha*frac*frac*0.55;
+    ctx.strokeStyle='rgba('+col+',1)';
+    ctx.lineWidth=frac*1.2;
+    ctx.beginPath();ctx.moveTo(buf[i-1].x,buf[i-1].y);ctx.lineTo(buf[i].x,buf[i].y);ctx.stroke();
+    // Small star dot at each trail point for the "soul particle" feel
+    if(i%3===0&&frac>0.3){
+      ctx.globalAlpha=alpha*frac*0.22;
+      ds(buf[i].x,buf[i].y,frac*0.8,1.0);
+    }
+  }
+  ctx.restore();
+}
+
+// ── HIT ──────────────────────────────────────────────────────────────────────
+function hitTest(sx,sy){var best=null,bestZ=-9e9;albumNodes.concat(songNodes).concat(fileNodes).forEach(function(n){if((n.type==='song'||n.type==='file')&&n.visAlpha<0.22)return;var p=proj({x:n.x,y:n.y,z:n.z});var hit=n.type==='album'?24:n.type==='song'?16:12;if(Math.hypot(sx-p.sx,sy-p.sy)<hit&&n.z>bestZ){bestZ=n.z;best=n;}});return best;}
+
+// ── INFO ─────────────────────────────────────────────────────────────────────
+function showInfo(node){
+  if(!node){info.classList.remove('visible');return;}
+  info.classList.add('visible');
+  if(node.type==='album'){infoT.textContent=node.data.label;infoM.textContent=node.data.year+' · '+node.data.type;infoD.textContent=(node.data.desc||[]).join(' ');}
+  else if(node.type==='song'){infoT.textContent=node.data.label;infoM.textContent=node.album.label+' · '+node.album.year;var v=(node.data.versions||[]).length,s=(node.data.stems||[]).length;infoD.textContent=v+' version'+(v!==1?'s':'')+' · '+s+' stem'+(s!==1?'s':'')+'\nclick to enter';}
+  else{infoT.textContent=node.data.label;infoM.textContent=(node.tag?'['+node.tag+'] ':'')+((node.data.dur)||'');infoD.textContent=node.song.label+' — '+node.album.label;}
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+function aimAt(bx,by,bz){cam.rotYTarget=cam.rotY-Math.atan2(bx,bz);cam.rotXTarget=Math.max(-0.7,Math.min(0.7,-Math.atan2(by,Math.sqrt(bx*bx+bz*bz))*0.5));}
+function enterAlbum(an){if(transLock)return;transLock=true;cam.autoSpin=false;state.level='album';state.focusAlbum=an;aimAt(an.bx,an.by,an.bz);focusNode=an;view.scaleT=5.8;setTimeout(function(){transLock=false;},1200);showInfo(an);}
+function enterSong(sn){if(transLock)return;transLock=true;cam.autoSpin=false;state.level='song';state.focusSong=sn;focusNode=sn;view.scaleT=9.0;setTimeout(function(){transLock=false;},1200);showInfo(sn);}
+function goBack(){
+  if(transLock)return;transLock=true;
+  if(state.level==='song'){state.level='album';state.focusSong=null;focusNode=state.focusAlbum;view.scaleT=5.8;}
+  else if(state.level==='album'){state.level='galaxy';state.focusAlbum=null;focusNode=null;cam.rotXTarget=0.48;cam.autoSpin=true;view.scaleT=2.0;view.offXT=0;view.offYT=0;showInfo(null);}
+  setTimeout(function(){transLock=false;},950);
+}
+function handleClick(sx,sy){var node=hitTest(sx,sy);if(!node){if(state.level!=='galaxy')goBack();return;}if(node.type==='album'&&state.level==='galaxy')enterAlbum(node);else if(node.type==='song'&&state.level==='album')enterSong(node);else if(node.type==='file'&&state.level==='song'){if(typeof doPlay==='function')doPlay(null,node.data,node.song,node.album);node.played=true;showInfo(node);}}
+
+// ── DRAW ─────────────────────────────────────────────────────────────────────
+function aglow(x,y,r,a,col){var g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba('+col+','+a+')');g.addColorStop(0.45,'rgba('+col+','+(a*0.20)+')');g.addColorStop(1,'rgba('+col+',0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}
+
+function drawScene(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+
+  // BG STARS
+  bgStars.forEach(function(d){d.tw+=d.ts;ds(d.fx*W,d.fy*H,d.sz,d.a*(0.35+Math.sin(d.tw)*0.65));});
+
+  // arm particles removed
+
+
+
+  // Lines + nodes
+  songNodes.forEach(function(sn){if(sn.visAlpha<0.05)return;var ap=proj({x:sn.albumNode.x,y:sn.albumNode.y,z:sn.albumNode.z}),sp2=proj({x:sn.x,y:sn.y,z:sn.z});ctx.save();ctx.globalAlpha=sn.visAlpha*(0.07+sn.glow*0.16);ctx.beginPath();ctx.moveTo(ap.sx,ap.sy);ctx.lineTo(sp2.sx,sp2.sy);ctx.strokeStyle='rgba(185,182,174,1)';ctx.lineWidth=0.35;ctx.stroke();ctx.restore();});
+  fileNodes.forEach(function(fn){if(fn.visAlpha<0.05)return;var sn=fn.songNode,sp2=proj({x:sn.x,y:sn.y,z:sn.z}),fp2=proj({x:fn.x,y:fn.y,z:fn.z});ctx.save();ctx.globalAlpha=fn.visAlpha*(0.09+fn.glow*0.12);ctx.beginPath();ctx.moveTo(sp2.sx,sp2.sy);ctx.lineTo(fp2.sx,fp2.sy);ctx.strokeStyle='rgba(155,152,145,1)';ctx.lineWidth=0.20;ctx.stroke();ctx.restore();});
+
+  var pj=albumNodes.concat(songNodes).concat(fileNodes).map(function(n){return{n:n,p:proj({x:n.x,y:n.y,z:n.z})};});
+  pj.sort(function(a,b){return a.p.z-b.p.z;});
+  pj.forEach(function(item){
+    var n=item.n,p=item.p,isH=(n===cursorNode),gv=n.glow;
+    var fa=(n.type==='song'?n.visAlpha:n.type==='file'?n.visAlpha:1)*(n.bgFade||1);
+    if(fa<0.01)return;
+    ctx.save();ctx.globalAlpha=fa;
+    var s=Math.max(p.s*view.scale,0.1);
+    // Trails for ALL moving nodes — shooting soul effect
+    var trailLen=n.type==='album'?22:n.type==='song'?18:10;
+    var trailBright=n.type==='album'?0.55:n.type==='song'?0.42:0.28;
+    var trailCol=n.type==='album'?'218,215,206':n.type==='song'?'185,182,174':'148,145,137';
+    uTrail(n.id,p.sx,p.sy,trailLen);
+    if(fa>0.04) dTrail(n.id,fa*trailBright,trailCol);
+    if(n.type==='album'){
+      // ALBUM: pure glow — no spikes, just layered soft halos + bright core
+      var r=Math.max(n.r*s*2.2,6);
+      // Outermost whisper halo — very wide, very faint
+      ds(p.sx,p.sy,r*7,  fa*(0.06+gv*0.08));
+      // Mid glow layers — build the "bloom" feel
+      ds(p.sx,p.sy,r*4,  fa*(0.14+gv*0.14));
+      ds(p.sx,p.sy,r*2.2,fa*(0.32+gv*0.22));
+      ds(p.sx,p.sy,r*1.1,fa*(0.62+gv*0.20));
+      // Hot core — tight and bright
+      ds(p.sx,p.sy,r*0.4,fa*(0.95+gv*0.05));
+      // Label
+      if(fa>0.08){
+        ctx.textAlign='center';
+        var fs=Math.max(6,Math.min(10,8*Math.sqrt(s)));
+        ctx.font=fs+'px "Courier New",monospace';
+        ctx.fillStyle='rgba('+(isH?'238,235,228':'195,192,183')+','+(fa*(0.78+gv*0.22))+')';
+        ctx.fillText(n.label.toUpperCase(),p.sx,p.sy+r*1.8+fs);
+        ctx.font=(fs-2)+'px "Courier New",monospace';
+        ctx.fillStyle='rgba(110,107,100,'+fa*(0.60)+')';
+        ctx.fillText(n.sublabel,p.sx,p.sy+r*1.8+fs*2+1);
+      }
+
+    }else if(n.type==='song'){
+      // SONG: medium star — visible but clearly smaller than album
+      var r=Math.max(n.r*s*(1+gv*0.4),0.8);
+      ds(p.sx,p.sy,r*3.5,fa*(0.08+gv*0.14));
+      ds(p.sx,p.sy,r*1.4,fa*(0.50+gv*0.25));
+      ds(p.sx,p.sy,r*0.55,fa*(0.82+gv*0.18));
+      // Label shows when in focused album, or on hover
+      var inFocus=state.level==='album'&&state.focusAlbum===n.albumNode;
+      if(inFocus||isH){
+        ctx.textAlign='center';
+        var fs=Math.max(5,Math.min(7.5,6*Math.sqrt(s)));
+        ctx.font=fs+'px "Courier New",monospace';
+        ctx.fillStyle='rgba(170,167,158,'+(fa*(0.50+gv*0.40))+')';
+        ctx.fillText(n.label,p.sx,p.sy-r*2.5-2);
+      }
+
+    }else{
+      // FILE: tiny dim dot — clearly not primary navigation
+      var r=Math.max(n.r*s*(n.played?1.6:1),0.4);
+      ds(p.sx,p.sy,r*2,fa*(0.05+gv*0.15+(n.played?0.10:0)));
+      ds(p.sx,p.sy,r,fa*(0.45+gv*0.35+(n.played?0.20:0)));
+      if(isH||n.played){
+        ctx.textAlign='center';
+        var fs=Math.max(4.5,5.5*Math.sqrt(s));
+        ctx.font=fs+'px "Courier New",monospace';
+        ctx.fillStyle='rgba(130,127,120,0.85)';
+        ctx.fillText((n.tag?'['+n.tag+'] ':'')+n.data.label,p.sx,p.sy-r*2-2);
+      }
+    }
+    ctx.restore();
+  });
+
+  if(mx>0){cursorR+=((cursorNode?5.5:2.5)-cursorR)*0.14;ds(mx,my,cursorR,0.44);}
+  if(state.level!=='galaxy'){ctx.save();ctx.font='6.5px "Courier New",monospace';ctx.fillStyle='rgba(82,80,74,0.55)';ctx.textAlign='left';var crumb=state.level==='song'?state.focusSong.data.label+' / '+state.focusAlbum.data.label:state.focusAlbum.data.label;ctx.fillText('← '+crumb+'  [ esc ]',14,H-12);ctx.restore();}
+}
+
+// ── LOOP ─────────────────────────────────────────────────────────────────────
+function frame(){
+  if(!isOpen)return;raf=requestAnimationFrame(frame);t+=0.016;
+  if(cam.autoSpin)cam.rotYTarget+=cam.spinSpeed*60*0.016;
+  cam.rotY+=(cam.rotYTarget-cam.rotY)*0.025;cam.rotX+=(cam.rotXTarget-cam.rotX)*0.025;
+  view.scale+=(view.scaleT-view.scale)*0.040;view.offX+=(view.offXT-view.offX)*0.040;view.offY+=(view.offYT-view.offY)*0.040;
+  updatePositions();
+  cursorNode=hitTest(mx,my);
+  albumNodes.concat(songNodes).concat(fileNodes).forEach(function(n){
+    var tgt=n===cursorNode?1.0:n.played?0.5:0;
+    if(n===state.focusAlbum||n===state.focusSong)tgt=Math.max(tgt,0.42);
+    n.glow+=(tgt-n.glow)*0.07;
+    var fadeTgt=1.0;
+    if(state.level==='album'){
+      if(n.type==='album'&&n!==state.focusAlbum)fadeTgt=0.06;
+      if(n.type==='song'&&n.albumNode!==state.focusAlbum)fadeTgt=0.04;
+      if(n.type==='file'&&n.songNode&&n.songNode.albumNode!==state.focusAlbum)fadeTgt=0.02;
+    }
+    if(state.level==='song'){
+      if(n.type==='album')fadeTgt=0.04;
+      if(n.type==='song'&&n!==state.focusSong)fadeTgt=0.05;
+      if(n.type==='file'&&n.songNode!==state.focusSong)fadeTgt=0.03;
+    }
+    if(!n.bgFade)n.bgFade=1.0;
+    n.bgFade+=(fadeTgt-n.bgFade)*0.045;
+  });
+  drawScene();
+}
+
+// ── RESIZE ───────────────────────────────────────────────────────────────────
+function resize(){dpr=window.devicePixelRatio||1;W=layer.offsetWidth;H=layer.offsetHeight;cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);}
+window.addEventListener('resize',function(){if(isOpen){resize();buildGalaxy();}});
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+cv.addEventListener('mousedown',function(e){cam.dragging=true;cam.dragX=e.clientX;cam.dragY=e.clientY;if(state.level==='galaxy'){cam.autoSpin=false;focusNode=null;}});
+window.addEventListener('mousemove',function(e){if(!isOpen)return;var r=cv.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;if(cam.dragging){cam.rotYTarget+=(e.clientX-cam.dragX)*0.0035;cam.rotXTarget+=(e.clientY-cam.dragY)*0.0025;cam.rotXTarget=Math.max(-0.88,Math.min(0.88,cam.rotXTarget));cam.dragX=e.clientX;cam.dragY=e.clientY;}});
+window.addEventListener('mouseup',function(){if(!cam.dragging)return;cam.dragging=false;if(state.level==='galaxy')setTimeout(function(){cam.autoSpin=true;},4500);});
+cv.addEventListener('mouseleave',function(){mx=-999;my=-999;cam.dragging=false;});
+var _dd=false;
+cv.addEventListener('click',function(e){if(cam.dragging||_dd){_dd=false;return;}var r=cv.getBoundingClientRect();handleClick(e.clientX-r.left,e.clientY-r.top);});
+var _tx=0,_ty=0;
+cv.addEventListener('touchstart',function(e){var r=cv.getBoundingClientRect();_tx=e.touches[0].clientX;_ty=e.touches[0].clientY;mx=_tx-r.left;my=_ty-r.top;_dd=false;},{passive:true});
+cv.addEventListener('touchmove',function(e){e.preventDefault();var dx=e.touches[0].clientX-_tx,dy=e.touches[0].clientY-_ty;if(Math.abs(dx)>5||Math.abs(dy)>5)_dd=true;var r=cv.getBoundingClientRect();mx=e.touches[0].clientX-r.left;my=e.touches[0].clientY-r.top;cam.rotYTarget+=dx*0.005;cam.rotXTarget+=dy*0.004;cam.rotXTarget=Math.max(-0.88,Math.min(0.88,cam.rotXTarget));_tx=e.touches[0].clientX;_ty=e.touches[0].clientY;cam.autoSpin=false;},{passive:false});
+cv.addEventListener('touchend',function(e){e.preventDefault();if(!_dd)handleClick(mx,my);if(state.level==='galaxy')setTimeout(function(){cam.autoSpin=true;},4500);setTimeout(function(){mx=-999;my=-999;},400);},{passive:false});
+document.addEventListener('keydown',function(e){if(!isOpen)return;if(e.key==='Escape'||e.key==='Backspace'){if(state.level!=='galaxy')goBack();else closeConstellation();}});
+
+// ── OPEN / CLOSE ──────────────────────────────────────────────────────────────
+function openConstellation(){isOpen=true;layer.classList.add('open');bakeStamps();resize();buildGalaxy();state.level='galaxy';state.focusAlbum=null;state.focusSong=null;focusNode=null;cam.rotX=0.48;cam.rotXTarget=0.48;cam.rotY=0;cam.rotYTarget=0;cam.autoSpin=true;view.scale=2.0;view.scaleT=2.0;view.offX=0;view.offY=0;view.offXT=0;view.offYT=0;mx=-999;my=-999;cursorNode=null;cursorR=2.5;info.classList.remove('visible');frame();}
+function closeConstellation(){isOpen=false;layer.classList.remove('open');cancelAnimationFrame(raf);info.classList.remove('visible');}
+var conBtn=document.getElementById('constellation-btn');
+var closeBtn=document.getElementById('constellation-close');
+if(conBtn)conBtn.addEventListener('click',openConstellation);
+if(closeBtn)closeBtn.addEventListener('click',closeConstellation);
+
+})();
+// ── END CONSTELLATION ──────────────────────────────────────────────────────
+
 </script>
 <canvas id="ghost-cursor-cv" style="position:fixed;inset:0;width:100%;height:100%;z-index:9997;pointer-events:none;opacity:1;transition:opacity .3s;"></canvas>
 <canvas id="chaos-cursor-cv" style="position:fixed;inset:0;width:100%;height:100%;z-index:9998;pointer-events:none;opacity:0;"></canvas>
